@@ -120,6 +120,15 @@ module jtframe_mister #(parameter
     output [63:0]   DDRAM_DIN,
     output  [7:0]   DDRAM_BE,
     output          DDRAM_WE,
+`ifdef CPSPLUS
+    // CPS+ arranged-audio DDR client (game side)
+    input           cpsp_rd,
+    input   [ 7:0]  cpsp_burstcnt,
+    input   [28:0]  cpsp_addr,
+    output          cpsp_busy,
+    output  [63:0]  cpsp_dout,
+    output          cpsp_dout_ready,
+`endif
 
     // ROM programming
     output       [26:0] ioctl_addr,
@@ -1080,10 +1089,25 @@ wire rot_clk;
 `endif
 `endif
 
+`ifdef CPSPLUS
+wire cpsp_sel;
+assign cpsp_dout       = DDRAM_DOUT;
+assign cpsp_dout_ready = cpsp_sel & DDRAM_DOUT_READY;
+`endif
+
 jtframe_mr_ddrmux u_ddrmux(
         .rst            ( rst             ),
         .clk            ( clk_rom         ),
         .ioctl_rom      ( ioctl_rom       ),
+`ifdef CPSPLUS
+        // CPS+ client (read-only)
+        .cpsp_burstcnt  ( cpsp_burstcnt   ),
+        .cpsp_addr      ( cpsp_addr       ),
+        .cpsp_rd        ( cpsp_rd         ),
+        .cpsp_busy      ( cpsp_busy       ),
+        .cpsp_sel       ( cpsp_sel        ),
+        .ddr_dout_ready ( DDRAM_DOUT_READY),
+`endif
         // Fast DDR load
         .ddrld_burstcnt ( ddrld_burstcnt  ),
         .ddrld_addr     ( ddrld_addr      ),

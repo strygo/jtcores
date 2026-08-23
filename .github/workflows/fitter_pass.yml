@@ -1,0 +1,120 @@
+name: CPS+ fitter pass
+
+# Fits the stock core and the CPSPLUS core back to back FROM THE SAME TREE
+# and reports the timing delta, so the cost of the tap is measured rather
+# than guessed.  CPS+ is macro-gated (`-d CPSPLUS`); the stock leg is the
+# upstream core.
+#
+# `core: all` fans out to cps1, cps15 and cps2 as three independent jobs
+# (fail-fast off: one core's timing miss must not cancel the others'
+# evidence).  Each leg is a full Quartus compile, so a run is hours.
+
+on:
+  workflow_dispatch:
+    inputs:
+      seed:
+        description: Quartus fitter seed (both legs)
+        required: false
+        default: "1"
+      core:
+        description: 'core to fit: all, cps1, cps15, or cps2'
+        required: false
+        default: "all"
+      dbg:
+        description: 'visual CPSPLUS_DBG overlay (1 = build with -d CPSPLUS_DBG)'
+        required: false
+        default: ""
+      trials:
+        description: 'seeds tried per leg until STA closes (seed, seed+1, ...)'
+        required: false
+        default: "1"
+
+jobs:
+  # Turn the `core` input into a matrix list; "all" stays in sync with the
+  # core set in exactly one place.
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      cores: ${{ steps.pick.outputs.cores }}
+    steps:
+      - id: pick
+        env:
+          CORE: ${{ inputs.core }}
+        run: |
+          case "$CORE" in
+            all|"") cores='["cps1","cps15","cps2"]' ;;
+            cps1|cps15|cps2) cores="[\"$CORE\"]" ;;
+            *) echo "unknown core '$CORE' (want all|cps1|cps15|cps2)" >&2; exit 1 ;;
+          esac
+          echo "cores=$cores" >> "$GITHUB_OUTPUT"
+          echo "fitting: $cores"
+
+  fitter:
+    needs: plan
+    runs-on: ubuntu-24.04   # pinned amd64 (ubuntu-latest handed an arm64 runner; jtcore20 image is amd64-only)
+    timeout-minutes: 350   # runner hard cap is 360
+    strategy:
+      fail-fast: false     # one core's timing failure must not cancel the others
+      matrix:
+        core: ${{ fromJSON(needs.plan.outputs.cores) }}
+    steps:
+      # NOT `submodules: recursive`: several submodules use ssh URLs; a
+      # recursive checkout would fail without jotego's PAT.  jtframe itself
+      # is vendored in-tree, not a submodule.
+      - uses: actions/checkout@v4
+
+      - name: Init public submodules (per-path, robust)
+        run: |
+          # Force-init each submodule individually so an SSH-only submodule
+          # failing can't abort the batch or leave a required one
+          # cloned-but-not-checked-out.
+          n=0
+          for p in $(git submodule status | awk '{print $2}'); do
+            n=$((n+1))
+            git submodule update --init --force "$p" 2>/dev/null && echo "ok   $p" || echo "skip $p (ssh/private?)"
+          done
+          echo "submodules processed: $n"
+          # Hard-verify the ACTUAL files jtcore parses (ls -A is too weak).
+          fail=0
+          for f in modules/fx68k/cfg/files.yaml modules/jtdsp16/hdl modules/jteeprom/hdl; do
+            [ -e "$f" ] || { echo "FATAL: required submodule content missing: $f" >&2; fail=1; }
+          done
+          [ "$fail" = 0 ] || { echo "listing modules/fx68k:"; ls -la modules/fx68k || true; exit 1; }
+
+      # Seconds-long consistency check before claiming a multi-hour Quartus
+      # slot: every cpsplus file each core's files.yaml names must exist.
+      - name: Pre-flight -- module file set
+        run: |
+          rc=0
+          for c in cps1 cps15 cps2; do
+            for f in $(grep -o 'cpsplus_[A-Za-z0-9_]*\.v' cores/$c/cfg/files.yaml | sort -u); do
+              [ -f "modules/cpsplus/hdl/$f" ] && echo "ok   $c $f" \
+                || { echo "FAIL $c: modules/cpsplus/hdl/$f missing" >&2; rc=1; }
+            done
+          done
+          exit $rc
+
+      - name: Fitter A/B (stock + CPSPLUS) in jotego/jtcore20
+        env:
+          SEED: ${{ inputs.seed }}
+          CORE: ${{ matrix.core }}
+          CPSPLUS_DBG: ${{ inputs.dbg }}
+          TRIALS: ${{ inputs.trials }}
+        run: |
+          docker run --rm --platform linux/amd64 --network host \
+            -e SEED="$SEED" \
+            -e CORE="$CORE" \
+            -e CPSPLUS_DBG="$CPSPLUS_DBG" \
+            -e TRIALS="$TRIALS" \
+            -v "$PWD":/jtcores \
+            jotego/jtcore20 \
+            /jtcores/.github/scripts/fitter_ab.sh /jtcores /jtcores/fitter_results
+
+      # upload even on STA fail / timeout: partial reports are still data
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cpsplus-fitter-results-${{ matrix.core }}
+          path: fitter_results
+          retention-days: 14
+          if-no-files-found: warn

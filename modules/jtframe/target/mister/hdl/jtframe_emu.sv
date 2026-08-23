@@ -400,6 +400,14 @@ wire [`JTFRAME_LF_VW-1:0] game_vrender, ln_v;
 wire        ln_done, ln_hs, ln_vs, ln_lvbl, ln_we, fb_keep;
 wire [15:0] ln_dout, ln_pxl, ln_data;
 
+`ifdef CPSPLUS
+// CPS+ arranged-audio DDR client (game <-> jtframe_mr_ddrmux)
+wire        cpsp_busy, cpsp_dout_ready, cpsp_rd;
+wire [ 7:0] cpsp_burstcnt;
+wire [28:0] cpsp_addr;
+wire [63:0] cpsp_dout;
+`endif
+
 jtframe_mister #(
     .SDRAMW         ( SDRAMW         ),
     .BUTTONS        (`JTFRAME_BUTTONS),
@@ -495,6 +503,16 @@ u_frame(
     .DDRAM_DOUT     ( DDRAM_DOUT     ),
     .DDRAM_RD       ( DDRAM_RD       ),
     .DDRAM_DIN      ( DDRAM_DIN      ),
+
+`ifdef CPSPLUS
+    // CPS+ arranged-audio DDR client
+    .cpsp_busy      ( cpsp_busy       ),
+    .cpsp_burstcnt  ( cpsp_burstcnt   ),
+    .cpsp_addr      ( cpsp_addr       ),
+    .cpsp_dout      ( cpsp_dout       ),
+    .cpsp_dout_ready( cpsp_dout_ready ),
+    .cpsp_rd        ( cpsp_rd         ),
+`endif
 
     // SDRAM interface
     .SDRAM_CLK      ( SDRAM_CLK      ),

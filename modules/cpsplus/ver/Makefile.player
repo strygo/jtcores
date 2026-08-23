@@ -1,0 +1,111 @@
+# CPS+ audio RTL testbench driver (cpsplus_adx + cpsplus_player).
+#
+# Usage, from cpsplus/rtl/tb:
+#     make -f Makefile.player          # everything (vectors, sims, checks)
+#     make -f Makefile.player adx      # decoder acceptance only
+#     make -f Makefile.player player   # player acceptance only
+#
+# Vector generation needs the real pack (work/packs/hsf2_arrange.cpk, built
+# by build_pack.py) and ffmpeg (pack/adxcodec.py bridge).  Generated
+# vectors/sim builds live under work/ and stay untracked (AGENTS.md).
+# The full `player` target simulates ~1.6M sample pairs for the loop-wrap
+# proof; expect a few minutes of vvp time.
+
+PY   ?= python3
+IVL  ?= iverilog -g2005
+VVP  ?= vvp
+PACK ?= ../../work/packs/hsf2_arrange.cpk
+SIM  := ../../work/rtl_sim
+VEC  := ../../work/rtl_vectors
+
+ADX_TESTS    := t55 t0 t54
+PLAYER_TESTS := loop restart stop monoadx pcm pcm_mono fade1 fade2 xfade xfcnt hccnt
+
+.PHONY: all adx player clean
+all: adx player
+	@echo "== ALL TESTBENCHES GREEN =="
+
+adx: $(addprefix run-adx-,$(ADX_TESTS))
+player: $(addprefix run-p-,$(PLAYER_TESTS))
+
+# ------------------------------------------------------------- sim builds --
+$(SIM)/tb_adx.vvp: tb_adx.v ../cpsplus_adx.v
+	@mkdir -p $(SIM)
+	$(IVL) -o $@ $^
+
+$(SIM)/tb_player.vvp: tb_player.v ../cpsplus_player.v ../cpsplus_adx.v
+	@mkdir -p $(SIM)
+	$(IVL) -o $@ $^
+
+# same TB elaborated at the production crossfade length (XFADE_N = 7200)
+$(SIM)/tb_player7200.vvp: tb_player.v ../cpsplus_player.v ../cpsplus_adx.v
+	@mkdir -p $(SIM)
+	$(IVL) -Ptb_player.XFADE_N=7200 -o $@ $^
+
+# ---------------------------------------------------------------- vectors --
+# decoder: whole track 55 (smallest full track) + 2000-group prefixes
+$(VEC)/adx_t55/plusargs.txt: gen_adx_vectors.py
+	$(PY) gen_adx_vectors.py --pack $(PACK) --track 55 --out $(VEC)/adx_t55
+$(VEC)/adx_t0/plusargs.txt: gen_adx_vectors.py
+	$(PY) gen_adx_vectors.py --pack $(PACK) --track 0 --frames 2000 \
+	    --out $(VEC)/adx_t0
+$(VEC)/adx_t54/plusargs.txt: gen_adx_vectors.py
+	$(PY) gen_adx_vectors.py --pack $(PACK) --track 54 --frames 2000 \
+	    --out $(VEC)/adx_t54
+
+# player: real-pack loop acceptance + directed synthetic tests
+$(VEC)/p_loop/plusargs.txt: gen_player_vectors.py
+	$(PY) gen_player_vectors.py --mode loop --pack $(PACK) \
+	    --out $(VEC)/p_loop
+$(VEC)/p_restart/plusargs.txt: gen_player_vectors.py \
+        $(VEC)/p_loop/plusargs.txt
+	$(PY) gen_player_vectors.py --mode restart --pack $(PACK) \
+	    --out $(VEC)/p_restart --loop-dir $(VEC)/p_loop
+$(VEC)/p_stop/plusargs.txt: gen_player_vectors.py $(VEC)/p_loop/plusargs.txt
+	$(PY) gen_player_vectors.py --mode stop --pack $(PACK) \
+	    --out $(VEC)/p_stop --loop-dir $(VEC)/p_loop
+$(VEC)/p_monoadx/plusargs.txt: gen_player_vectors.py
+	$(PY) gen_player_vectors.py --mode monoadx --out $(VEC)/p_monoadx
+$(VEC)/p_pcm/plusargs.txt: gen_player_vectors.py
+	$(PY) gen_player_vectors.py --mode pcm --out $(VEC)/p_pcm
+$(VEC)/p_pcm_mono/plusargs.txt: gen_player_vectors.py
+	$(PY) gen_player_vectors.py --mode pcm_mono --out $(VEC)/p_pcm_mono
+$(VEC)/p_fade1/plusargs.txt: gen_player_vectors.py
+	$(PY) gen_player_vectors.py --mode fade1 --out $(VEC)/p_fade1
+$(VEC)/p_fade2/plusargs.txt: gen_player_vectors.py
+	$(PY) gen_player_vectors.py --mode fade2 --out $(VEC)/p_fade2
+$(VEC)/p_xfade/plusargs.txt: gen_player_vectors.py ../../pack/xfade.py
+	$(PY) gen_player_vectors.py --mode xfade --out $(VEC)/p_xfade
+$(VEC)/p_xfade7200/plusargs.txt: gen_player_vectors.py ../../pack/xfade.py
+	$(PY) gen_player_vectors.py --mode xfade --xfade-n 7200 \
+	    --out $(VEC)/p_xfade7200
+$(VEC)/p_xfcnt/plusargs.txt: gen_player_vectors.py ../../pack/xfade.py
+	$(PY) gen_player_vectors.py --mode xfcnt --out $(VEC)/p_xfcnt
+$(VEC)/p_hccnt/plusargs.txt: gen_player_vectors.py
+	$(PY) gen_player_vectors.py --mode hccnt --out $(VEC)/p_hccnt
+
+# -------------------------------------------------------------- test runs --
+run-adx-%: $(SIM)/tb_adx.vvp $(VEC)/adx_%/plusargs.txt
+	@echo "== tb_adx $*"
+	@$(VVP) $(SIM)/tb_adx.vvp $$(cat $(VEC)/adx_$*/plusargs.txt) 2>&1 \
+	    | grep -v "WARNING.*readmemh" | tee $(SIM)/adx_$*.log \
+	    | grep -E "TB_ADX|MISMATCH"
+	@grep -q "TB_ADX PASS" $(SIM)/adx_$*.log
+
+run-p-%: $(SIM)/tb_player.vvp $(VEC)/p_%/plusargs.txt
+	@echo "== tb_player $*"
+	@$(VVP) $(SIM)/tb_player.vvp $$(cat $(VEC)/p_$*/plusargs.txt) 2>&1 \
+	    | grep -v "WARNING.*readmemh" | tee $(SIM)/p_$*.log \
+	    | grep -E "TB_PLAYER|MISMATCH|\[" || true
+	@grep -q "TB_PLAYER PASS" $(SIM)/p_$*.log
+
+# production-length crossfade acceptance (XFADE_N = 7200, real pack N)
+run-p-xfade7200: $(SIM)/tb_player7200.vvp $(VEC)/p_xfade7200/plusargs.txt
+	@echo "== tb_player xfade7200 (XFADE_N=7200)"
+	@$(VVP) $(SIM)/tb_player7200.vvp $$(cat $(VEC)/p_xfade7200/plusargs.txt) \
+	    2>&1 | grep -v "WARNING.*readmemh" | tee $(SIM)/p_xfade7200.log \
+	    | grep -E "TB_PLAYER|MISMATCH|\[" || true
+	@grep -q "TB_PLAYER PASS" $(SIM)/p_xfade7200.log
+
+clean:
+	rm -rf $(SIM)

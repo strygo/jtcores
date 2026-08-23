@@ -162,6 +162,26 @@ reg        ddr_dwn, last_dwn, last_dwnbusy, wr_latch;
 reg        dump_we;
 reg [26:0] ddr_len;
 
+`ifdef CPSPLUS
+// CPS+ pack appended to the ROM image: image bytes 8-9 (a reserved slot in
+// the CPS header start-pointer area, little-endian, 1 kB units) point at
+// the pack; 0x0000/0xFFFF (header fill) = no pack.  The DDR->core readback
+// must stop at the pack: the trailing pack bytes are not ROM data (they
+// would stream into the last download region), and images larger than
+// 128 MB wrap hps_addr so ddr_len cannot be trusted.  The pack itself
+// stays in DDR at 0x30000000 for the in-core cpsplus_ddr loader.
+reg  [15:0] pack_ptr, pad_len;
+// bytes 10-11 hold the pad (ROM end -> pack, <1 kB).  Those pad bytes must NOT
+// reach the core: everything at/after qsnd_start goes to the QSound DSP ROM at
+// a 13-bit (8 kB) WRAPPING address with no upper bound (jtcps1_prom_we.v
+// is_qsnd/prog_addr), so trailing bytes overwrite the START of the DSP
+// firmware -> dead DSP (measured: jtcps15 black screen 2026-07-27).  Stop at
+// the true ROM end.  0xffff (unpatched image) means pad 0.
+wire [ 9:0] pad_eff  = pad_len >= 16'd1024 ? 10'd0 : pad_len[9:0];
+wire [26:0] dump_end = (pack_ptr != 16'h0000 && pack_ptr != 16'hffff)
+                     ? {1'b0, pack_ptr, 10'd0} - {17'd0, pad_eff} : ddr_len;
+`endif
+
 assign hps_wait = ddr_dwn;
 assign is_rom   = hps_index[5:0]==IDX_ROM;
 assign is_cart  = hps_index[5:0]==IDX_CART;
@@ -214,7 +234,11 @@ always @(posedge clk, posedge rst) begin
                 ddr_dwn  <= 1;
             end
         end
+`ifdef CPSPLUS
+        if( !hps_download && last_dwnbusy && !dwnld_busy || (ddr_dwn && dump_cnt >= dump_end)) begin
+`else
         if( !hps_download && last_dwnbusy && !dwnld_busy || (ddr_dwn && dump_cnt >= ddr_len)) begin
+`endif
             ioctl_rom  <= 0;
             ddr_dwn    <= 0;
         end
@@ -241,6 +265,10 @@ always @(posedge clk, posedge rst) begin
         ddram_page <= 0;
         ddram_wait <= 0;
         tx_start   <= 0;
+`ifdef CPSPLUS
+        pack_ptr   <= 16'hffff;
+        pad_len    <= 16'hffff;
+`endif
     end else if(!ddram_busy ) begin
         if( ddr_dwn  ) begin
             if( !ddram_wait ) begin
@@ -253,6 +281,13 @@ always @(posedge clk, posedge rst) begin
             end else begin
                 ddram_rd <= 0;
                 if( ddram_dout_ready ) begin
+`ifdef CPSPLUS
+                    // image bytes 8-15 = second 64-bit word of page 0
+                    if( ddram_page == 0 && ddram_cnt == 7'd1 ) begin
+                        pack_ptr <= ddram_dout[15:0];   // bytes  8-9  : pack ptr
+                        pad_len  <= ddram_dout[31:16];  // bytes 10-11 : pad len
+                    end
+`endif
                     ddram_cnt <= ddram_cnt + 1'b1;
                     if( cnt_over ) begin
                         ddram_wait <= 0;
@@ -265,6 +300,10 @@ always @(posedge clk, posedge rst) begin
             ddram_rd   <= 0;
             tx_start   <= 0;
             ddram_wait <= 0;
+`ifdef CPSPLUS
+            pack_ptr   <= 16'hffff;   // re-armed while no DDR dump is active
+            pad_len    <= 16'hffff;
+`endif
         end
     end
 end

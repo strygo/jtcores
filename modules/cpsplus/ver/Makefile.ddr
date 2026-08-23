@@ -1,0 +1,71 @@
+# CPS+ DDR/loader + full-chain testbench driver (Phase 3 acceptance).
+#
+# Usage, from modules/cpsplus/ver:
+#     make -f Makefile.ddr            # everything: unit TB + full chain
+#     make -f Makefile.ddr ddr        # cpsplus_ddr unit acceptance only
+#     make -f Makefile.ddr chain      # trigger+ddr+player full chain
+#
+# The chain vectors need the real pack (work/packs/hsf2_arrange.cpk), the
+# Phase-2 event log (work/phase2/hsf2_fight/run_a/hsf2_events.tsv) and
+# ffmpeg (pack/adxcodec.py bridge for the golden render).  Generated
+# vectors and sim builds live under work/ and stay untracked (AGENTS.md).
+# The chain run simulates ~700k sample pairs (boot + play + a full intro
+# to the track-54 loop wrap + fade + stop): expect a few minutes of vvp.
+
+PY   ?= python3
+IVL  ?= iverilog -g2005
+VVP  ?= vvp
+PACK ?= ../../work/packs/hsf2_arrange.cpk
+SIM  := ../../work/rtl_sim
+VEC  := ../../work/rtl_vectors
+
+.PHONY: all ddr chain clean
+all: ddr chain
+	@echo "== DDR + CHAIN TESTBENCHES GREEN =="
+
+# ------------------------------------------------------------- sim builds --
+$(SIM)/tb_ddr.vvp: tb_ddr.v ../hdl/cpsplus_ddr.v
+	@mkdir -p $(SIM)
+	$(IVL) -o $@ $^
+
+$(SIM)/tb_chain.vvp: tb_chain.v ../hdl/cpsplus_top.v ../hdl/cpsplus_ddr.v \
+        ../hdl/cpsplus_trigger.v ../hdl/cpsplus_player.v ../hdl/cpsplus_adx.v
+	@mkdir -p $(SIM)
+	$(IVL) -o $@ $^
+
+# ---------------------------------------------------------------- vectors --
+$(VEC)/ddr/plusargs_good.txt: gen_chain_vectors.py
+	$(PY) gen_chain_vectors.py --mode ddr --out $(VEC)/ddr
+
+$(VEC)/chain/plusargs.txt: gen_chain_vectors.py
+	$(PY) gen_chain_vectors.py --mode chain --pack $(PACK) \
+	    --out $(VEC)/chain
+
+# -------------------------------------------------------------- test runs --
+ddr: $(SIM)/tb_ddr.vvp $(VEC)/ddr/plusargs_good.txt
+	@echo "== tb_ddr good (indirect base, full checks)"
+	@$(VVP) $(SIM)/tb_ddr.vvp $$(cat $(VEC)/ddr/plusargs_good.txt) 2>&1 \
+	    | grep -v "WARNING.*readmemh" | tee $(SIM)/ddr_good.log \
+	    | grep -E "TB_DDR|CHECK-FAIL|\["
+	@grep -q "TB_DDR PASS" $(SIM)/ddr_good.log
+	@echo "== tb_ddr bad magic (fail open)"
+	@$(VVP) $(SIM)/tb_ddr.vvp $$(cat $(VEC)/ddr/plusargs_bad.txt) 2>&1 \
+	    | grep -v "WARNING.*readmemh" | tee $(SIM)/ddr_bad.log \
+	    | grep -E "TB_DDR|CHECK-FAIL"
+	@grep -q "TB_DDR PASS" $(SIM)/ddr_bad.log
+	@echo "== tb_ddr no pack (0xFFFF pointer)"
+	@$(VVP) $(SIM)/tb_ddr.vvp $$(cat $(VEC)/ddr/plusargs_nopack.txt) 2>&1 \
+	    | grep -v "WARNING.*readmemh" | tee $(SIM)/ddr_nopack.log \
+	    | grep -E "TB_DDR|CHECK-FAIL"
+	@grep -q "TB_DDR PASS" $(SIM)/ddr_nopack.log
+
+chain: $(SIM)/tb_chain.vvp $(VEC)/chain/plusargs.txt
+	@echo "== tb_chain (boot + Phase-2 hsf2 window + wrap + fade + stop)"
+	@$(VVP) $(SIM)/tb_chain.vvp $$(cat $(VEC)/chain/plusargs.txt) 2>&1 \
+	    | grep -v "WARNING.*readmemh" | tee $(SIM)/chain.log \
+	    | grep -E "TB_CHAIN|CHECK-FAIL|MISMATCH|\["
+	@grep -q "TB_CHAIN PASS" $(SIM)/chain.log
+
+clean:
+	rm -rf $(SIM)/tb_ddr.vvp $(SIM)/tb_chain.vvp $(SIM)/ddr_*.log \
+	    $(SIM)/chain.log $(VEC)/ddr $(VEC)/chain

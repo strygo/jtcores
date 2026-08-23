@@ -27,3 +27,11 @@ jtframe:
   - from: ram
     get:
       - jtframe_dual_ram16.v
+cpsplus:
+  - get:
+      - cpsplus_top.v
+      - cpsplus_trigger.v
+      - cpsplus_ddr.v
+      - cpsplus_player.v
+      - cpsplus_adx.v
+      - cpsplus_dbg_overlay.v

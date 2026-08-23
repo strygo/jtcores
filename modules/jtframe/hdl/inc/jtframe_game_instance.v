@@ -114,6 +114,16 @@ u_game(
     .dwnld_busy  ( dwnld_busy     ),
     .data_read   ( sdram_dout     ),
 
+`ifdef CPSPLUS
+    // CPS+ arranged-audio DDR client
+    .cpsp_busy      ( cpsp_busy       ),
+    .cpsp_burstcnt  ( cpsp_burstcnt   ),
+    .cpsp_addr      ( cpsp_addr       ),
+    .cpsp_dout      ( cpsp_dout       ),
+    .cpsp_dout_ready( cpsp_dout_ready ),
+    .cpsp_rd        ( cpsp_rd         ),
+`endif
+
     `ifdef JTFRAME_LF_BUFFER
     // line-frame buffer
     .game_vrender ( game_vrender     ),

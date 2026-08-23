@@ -74,6 +74,13 @@ wire        cpu_cen, cpu_cenb;
 wire        turbo;
 reg         rst_game;
 
+// CPS+ arranged audio (cpsplus_top): gate over the suppressed QSound
+// handshake writes.  Constant 0 unless a pack is loaded and enabled.
+wire        trig_gate;
+`ifndef CPSPLUS
+assign trig_gate = 1'b0;
+`endif
+
 `include "turbo.vh"
 
 assign snd_vu     = 0;
@@ -229,9 +236,15 @@ jtcps1_video #(REGSIZE) u_video(
     .VS             ( VS            ),
     .LHBL           ( LHBL          ),
     .LVBL           ( LVBL          ),
+`ifdef CPSPLUS_DBG
+    .red            ( cpsp_red      ),   // routed through the CPS+ debug overlay
+    .green          ( cpsp_green    ),
+    .blue           ( cpsp_blue     ),
+`else
     .red            ( red           ),
     .green          ( green         ),
     .blue           ( blue          ),
+`endif
     .flip           ( video_flip    ),
 
     // CPS-B Registers
@@ -297,7 +310,8 @@ jtcps15_sound u_sound(
     .main_addr  ( main2qs_addr      ),
     .main_dout  ( main_dout[7:0]    ),
     .main_din   ( main2qs_din       ),
-    .main_ldswn ( dsn[0]            ),
+    // CPS+: the gate blocks exactly the suppressed handshake byte writes
+    .main_ldswn ( dsn[0] | trig_gate ),
     .main_buse_n( ~main2qs_cs       ),
     .main_busakn( main_busakn       ),
     .main_waitn ( main_waitn        ),
@@ -320,11 +334,147 @@ jtcps15_sound u_sound(
     .prog_we    ( prog_qsnd         ),
 
     // Sound output
+`ifdef CPSPLUS
+    .left       ( qsnd_left         ),
+    .right      ( qsnd_right        ),
+`else
     .left       ( snd_left          ),
     .right      ( snd_right         ),
+`endif
     .sample     ( sample            ),
     .volume     (                   )
 );
+
+`ifdef CPSPLUS
+// ----------------------------------------------------------------- CPS+ ---
+// Arranged-audio stack (cpsplus_top = trigger sniffer + pack loader/DDR
+// backend + ADX/PCM player).  CPS1.5 shares jtcps15_sound (the QSound board)
+// with CPS2, so the tap is the CPS2 tap verbatim; the pack descriptor moves
+// the latch page (0x618000 -> 0xf18000).  Passive tap on the 68K->QSound bus
+// nets; the only edit to the stock core is the main_ldswn gate above.  The
+// pack rides the MRA ROM image into DDR at 0x30000000 (pack pointer at image
+// bytes 8-9).  See modules/cpsplus/README.md.
+wire signed [15:0] qsnd_left, qsnd_right, cpsp_l, cpsp_r;
+wire [15:0] cpsp_rate;
+wire [1:0]  cpsp_cen_v;               // jtframe_frac_cen needs W>=2
+wire        cpsp_cen = cpsp_cen_v[0];
+// The On/Off toggle was removed: suppression means the sound CPU never got
+// the music command, so switching off left SILENCE until the next cue (and
+// on CPS2 the gated write cannot be re-synthesised at all).  A/B against the
+// stock core by launching the stock MRA instead.  status[15:14] now sets the
+// arranged VOLUME so the music can be balanced against the native SFX.
+wire        cpsp_osd_en = 1'b1;             // tap always enabled
+wire [ 1:0] cpsp_vol    = status[15:14];    // 0=100% 1=125% 2=150% 3=75%
+reg         cpsp_boot_go, cpsp_boot_arm;
+reg         cpsp_frame,   lvbl_l;
+
+always @(posedge clk) begin
+    cpsp_boot_arm <= rst ? 1'b1 : cpsp_boot_arm & ioctl_rom;
+    cpsp_boot_go  <= ~rst & cpsp_boot_arm & ~ioctl_rom;  // fire once post-reset, ROM+pack in DDR
+    lvbl_l       <= LVBL;
+    cpsp_frame   <= lvbl_l & ~LVBL;             // ~60 Hz fade-law tick
+end
+
+// exact per-track sample cen: cen = clk * n / m (any rate, 96 MHz master)
+jtframe_frac_cen #(.W(2), .WC(27)) u_cpsp_cen(
+    .clk    ( clk                ),
+    .n      ( {11'd0, cpsp_rate} ),
+    .m      ( 27'd96_000_000     ),
+    .cen    ( cpsp_cen_v         ),
+    .cenb   (                    )
+);
+
+// Shift-only attenuation, REGISTERED: feeding a 4-way mux straight into the
+// mixer cost ~0.44 ns of setup slack on jtcps15 (stock +0.152 -> cpsplus
+// -0.441).  One clock of latency (~10 ns) is inaudible at a 48 kHz sample
+// rate and keeps the audio path out of the critical path.
+// Steps are 100/125/150/75 %.  The boost steps can push a near-full-scale
+// sample past 16 bits, so the sum is formed 18 bits wide and SATURATED.
+// Letting it wrap would turn a loud passage into a click at the wrap point,
+// which is a far worse artefact than the clipping it replaces.
+wire signed [17:0] cpsp_lx = {{2{cpsp_l[15]}}, cpsp_l};
+wire signed [17:0] cpsp_rx = {{2{cpsp_r[15]}}, cpsp_r};
+
+function signed [15:0] sat( input signed [17:0] v );
+    // 16'sh8000 rather than -16'sd32768: the decimal form asks for 32768 in a
+    // SIGNED 16-bit literal, which overflows and only lands on -32768 by way of
+    // two's-complement wrap.  Quartus reports that as "constant value overflow".
+    sat = ( v >  18'sd32767 ) ? 16'sh7fff :
+          ( v < -18'sd32768 ) ? 16'sh8000 : v[15:0];
+endfunction
+
+reg signed [15:0] cpsp_lv, cpsp_rv;
+always @(posedge clk) begin
+    case( cpsp_vol )
+        2'd0: begin cpsp_lv <= cpsp_l;                          cpsp_rv <= cpsp_r;                         end
+        2'd1: begin cpsp_lv <= sat(cpsp_lx + (cpsp_lx>>>2));    cpsp_rv <= sat(cpsp_rx + (cpsp_rx>>>2));   end
+        2'd2: begin cpsp_lv <= sat(cpsp_lx + (cpsp_lx>>>1));    cpsp_rv <= sat(cpsp_rx + (cpsp_rx>>>1));   end
+        default: begin cpsp_lv <= cpsp_l - (cpsp_l>>>2);        cpsp_rv <= cpsp_r - (cpsp_r>>>2);          end
+    endcase
+end
+// CPS+ debug read-out taps.  Declared unconditionally so the tap instance
+// below has something to drive in every build; without CPSPLUS_DBG they are
+// simply unused and optimise away.
+wire [3:0] cpsp_status;
+wire [7:0] cpsp_last_cmd;
+wire       cpsp_last_mapped, cpsp_playing;
+
+cpsplus_top u_cpsplus(
+    .rst            ( rst           ),
+    .clk            ( clk           ),
+    .main_addr      ( main2qs_addr  ),
+    .main_dout      ( main_dout     ),
+    .dsn            ( dsn           ),
+    .main_rnw       ( main_rnw      ),
+    .main2qs_cs     ( main2qs_cs    ),
+    .gate           ( trig_gate     ),
+    .cen_sample     ( cpsp_cen      ),
+    .cen_frame      ( cpsp_frame    ),
+    .osd_pause      ( ~dip_pause    ),
+    .audio_l        ( cpsp_l        ),
+    .audio_r        ( cpsp_r        ),
+    .sample_vld     (               ),
+    .playing        ( cpsp_playing  ),
+    .trk_rate       ( cpsp_rate     ),
+    .base_addr      ( 32'h3000_0000 ),  // MRA ROM image base in DDR
+    .base_indirect  ( 1'b1          ),  // pack pointer at image bytes 8-9
+    .osd_en         ( cpsp_osd_en   ),
+    .boot_go        ( cpsp_boot_go  ),
+    .ready          (               ),
+    .magic_ok       (               ),
+    .status         ( cpsp_status   ),
+    .last_cmd       ( cpsp_last_cmd ),
+    .last_mapped    ( cpsp_last_mapped ),
+    .ddram_busy     ( cpsp_busy     ),
+    .ddram_burstcnt ( cpsp_burstcnt ),
+    .ddram_addr     ( cpsp_addr     ),
+    .ddram_dout     ( cpsp_dout     ),
+    .ddram_dout_ready( cpsp_dout_ready ),
+    .ddram_rd       ( cpsp_rd       )
+);
+
+// 16-bit saturating sum of QSound + CPS+ player (jtframe_limsum clips and
+// flags peaks; MiSTer sys resamples AUDIO_L/R, so the 24 kHz QSound and
+// the 32-48 kHz player mix as zero-order-held streams)
+jtframe_limsum #(.WI(16), .K(2)) u_cpsp_mixl(
+    .rst    ( rst                 ),
+    .clk    ( clk                 ),
+    .cen    ( 1'b1                ),
+    .parts  ( {cpsp_lv, qsnd_left} ),
+    .en     ( 2'b11               ),
+    .sum    ( snd_left            ),
+    .peak   (                     )
+);
+jtframe_limsum #(.WI(16), .K(2)) u_cpsp_mixr(
+    .rst    ( rst                  ),
+    .clk    ( clk                  ),
+    .cen    ( 1'b1                 ),
+    .parts  ( {cpsp_rv, qsnd_right} ),
+    .en     ( 2'b11                ),
+    .sum    ( snd_right            ),
+    .peak   (                      )
+);
+`endif
 
 wire nc0, nc1, nc2, nc3, nc4;
 
@@ -453,5 +603,36 @@ jtcps1_sdram #(.CPS(15), .REGSIZE(REGSIZE)) u_sdram (
     .cps2_joymode (              ),
     .dump_flag    (              )
 );
+
+`ifdef CPSPLUS_DBG
+// Debug build only: the video output detours through the overlay so a glance at
+// the screen says whether the pack loaded and whether the last sound command
+// was one the pack maps.  Runs in the video clock domain (clk_gfx/pxl_cen);
+// the overlay resyncs the CPS+ status signals internally.
+wire [`JTFRAME_COLORW-1:0] cpsp_red, cpsp_green, cpsp_blue;
+
+cpsplus_dbg_overlay #(.CW(`JTFRAME_COLORW)) u_cpsp_dbg(
+    .clk        ( clk_gfx           ),
+    .pxl_cen    ( pxl_cen           ),
+    .LHBL       ( LHBL              ),
+    .LVBL       ( LVBL              ),
+    .status     ( cpsp_status       ),
+    .playing    ( cpsp_playing      ),
+    .last_cmd   ( cpsp_last_cmd     ),
+    .last_mapped( cpsp_last_mapped  ),
+    // silence-diagnosis rows: wired on jtcps2 only; tied off here
+    .last_verb  ( 3'd0              ),
+    .last_ctrl  ( 1'b0              ),
+    .fst        ( 3'd0              ),
+    .end_cause  ( 4'd0              ),
+    .fifo_empty ( 1'b0              ),
+    .red_in     ( cpsp_red          ),
+    .green_in   ( cpsp_green        ),
+    .blue_in    ( cpsp_blue         ),
+    .red_out    ( red               ),
+    .green_out  ( green             ),
+    .blue_out   ( blue              )
+);
+`endif
 
 endmodule

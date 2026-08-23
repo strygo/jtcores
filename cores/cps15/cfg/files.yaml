@@ -7,3 +7,11 @@ cps1:
     - jtcps1_obj.v
     - jtcps1_main.v
     - common.yaml
+cpsplus:
+  - get:
+      - cpsplus_top.v
+      - cpsplus_trigger.v
+      - cpsplus_ddr.v
+      - cpsplus_player.v
+      - cpsplus_adx.v
+      - cpsplus_dbg_overlay.v

@@ -12,3 +12,11 @@ jtframe:
       - jtframe_iir2.v
 jt51:
 jt6295:
+cpsplus:
+  - get:
+      - cpsplus_cps1_top.v
+      - cpsplus_cps1_tap.v
+      - cpsplus_ddr.v
+      - cpsplus_player.v
+      - cpsplus_adx.v
+      - cpsplus_dbg_overlay.v

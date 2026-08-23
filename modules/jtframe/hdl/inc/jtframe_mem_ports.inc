@@ -60,7 +60,16 @@
     `elsif JTFRAME_SDRAM_LARGE
         output [22:0] `else output [21:0]
     `endif
-                    prog_addr,  // no comma here, end of port list
+                    prog_addr,
+`ifdef CPSPLUS
+    // CPS+ arranged-audio DDR client (MiSTer target only)
+    input           cpsp_busy,
+    output  [ 7:0]  cpsp_burstcnt,
+    output  [28:0]  cpsp_addr,
+    input   [63:0]  cpsp_dout,
+    input           cpsp_dout_ready,
+    output          cpsp_rd,
+`endif
     // Sound output
 `ifndef JTFRAME_STEREO
     output  signed [15:0] snd,
