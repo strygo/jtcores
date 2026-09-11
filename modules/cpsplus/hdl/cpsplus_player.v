@@ -24,6 +24,9 @@
     Fade engine (laws + constants are pack-header config, format.py):
         law 1 (Anthology): frames = const1 / arg              (0xffff/arg)
         law 2 (HSF2):      frames = (const1 / arg) * const2   (0x444/arg x 60)
+        law 3 (NG MAKOTO): frames = const2 + const1 / arg     (59 + 5860/speed),
+                           ramp linear in dB (0..47.25 dB in 0.75 dB steps over
+                           the frames) then cut; repeats while fading ignored
     fade_target is the record's volume byte convention 0..0x7f (127 = unity;
     upstream maps the PS2 arg-byte x4 clamp).  Internally the level is Q15
     (32768 = unity) with 8 fractional guard bits; target_q15 = target*258
@@ -115,7 +118,7 @@ module cpsplus_player #(parameter
     input      [31:0] trk_loop_end_smp,   // aligned; crossfade region math)
 
     // fade engine (config from pack header + per-command arguments)
-    input      [ 1:0] fade_law,       // 0 none, 1 Anthology, 2 HSF2
+    input      [ 1:0] fade_law,       // 0 none, 1 Anthology, 2 HSF2, 3 NG MAKOTO
     input      [31:0] fade_const1,
     input      [31:0] fade_const2,
     input             fade_trig,      // pulse: start a fade
@@ -476,6 +479,91 @@ reg  [31:0] fade_frames_left;
 reg         fade_act, fade_up;
 reg         fade_stop0;              // this fade ends the track if it lands on 0
 
+// Law 3 (Neo Geo MAKOTO) ramps LINEARLY IN dB, then cuts: the board adds a
+// master attenuation to every FM channel's total level in 0.75 dB steps until
+// the channels clamp to silence (measured: 7.6..32 dB/s, cut at ~45-50 dB;
+// ngplus/PHASE1_NOTES.md).  Ear-gated 2026-09-11 against the board's own fade
+// (C dB-linear closest, B linear-amplitude farthest).  Implementation: the
+// attenuation index runs 0..63 (0..47.25 dB) over the law's frames in Q16
+// steps, and the level is start_level x lut[index] through a registered
+// 24x16 multiply (3 clks after the frame tick; a tick is ~1.6M clks).
+reg         db_mode;                 // current fade is a dB ramp
+reg  [23:0] db_acc, db_step;         // Q6.16 attenuation index accumulator
+reg  [23:0] db_start;                // level when the fade began (Q15.8)
+reg  [ 1:0] db_pipe;
+reg  [15:0] db_lut_q;
+reg  [39:0] db_prod;
+
+function [15:0] db_lut(input [5:0] i);   // Q15 gain for i x 0.75 dB
+    case (i)
+        6'd 0: db_lut = 16'd32768;
+        6'd 1: db_lut = 16'd30057;
+        6'd 2: db_lut = 16'd27571;
+        6'd 3: db_lut = 16'd25290;
+        6'd 4: db_lut = 16'd23198;
+        6'd 5: db_lut = 16'd21279;
+        6'd 6: db_lut = 16'd19519;
+        6'd 7: db_lut = 16'd17904;
+        6'd 8: db_lut = 16'd16423;
+        6'd 9: db_lut = 16'd15064;
+        6'd10: db_lut = 16'd13818;
+        6'd11: db_lut = 16'd12675;
+        6'd12: db_lut = 16'd11627;
+        6'd13: db_lut = 16'd10665;
+        6'd14: db_lut = 16'd9783;
+        6'd15: db_lut = 16'd8973;
+        6'd16: db_lut = 16'd8231;
+        6'd17: db_lut = 16'd7550;
+        6'd18: db_lut = 16'd6925;
+        6'd19: db_lut = 16'd6353;
+        6'd20: db_lut = 16'd5827;
+        6'd21: db_lut = 16'd5345;
+        6'd22: db_lut = 16'd4903;
+        6'd23: db_lut = 16'd4497;
+        6'd24: db_lut = 16'd4125;
+        6'd25: db_lut = 16'd3784;
+        6'd26: db_lut = 16'd3471;
+        6'd27: db_lut = 16'd3184;
+        6'd28: db_lut = 16'd2920;
+        6'd29: db_lut = 16'd2679;
+        6'd30: db_lut = 16'd2457;
+        6'd31: db_lut = 16'd2254;
+        6'd32: db_lut = 16'd2068;
+        6'd33: db_lut = 16'd1896;
+        6'd34: db_lut = 16'd1740;
+        6'd35: db_lut = 16'd1596;
+        6'd36: db_lut = 16'd1464;
+        6'd37: db_lut = 16'd1343;
+        6'd38: db_lut = 16'd1232;
+        6'd39: db_lut = 16'd1130;
+        6'd40: db_lut = 16'd1036;
+        6'd41: db_lut = 16'd950;
+        6'd42: db_lut = 16'd872;
+        6'd43: db_lut = 16'd800;
+        6'd44: db_lut = 16'd734;
+        6'd45: db_lut = 16'd673;
+        6'd46: db_lut = 16'd617;
+        6'd47: db_lut = 16'd566;
+        6'd48: db_lut = 16'd519;
+        6'd49: db_lut = 16'd476;
+        6'd50: db_lut = 16'd437;
+        6'd51: db_lut = 16'd401;
+        6'd52: db_lut = 16'd368;
+        6'd53: db_lut = 16'd337;
+        6'd54: db_lut = 16'd309;
+        6'd55: db_lut = 16'd284;
+        6'd56: db_lut = 16'd260;
+        6'd57: db_lut = 16'd239;
+        6'd58: db_lut = 16'd219;
+        6'd59: db_lut = 16'd201;
+        6'd60: db_lut = 16'd184;
+        6'd61: db_lut = 16'd169;
+        6'd62: db_lut = 16'd155;
+        6'd63: db_lut = 16'd142;
+        default: db_lut = 16'd0;
+    endcase
+endfunction
+
 reg         fp_pend, fp_restore, fp_stop0;
 reg  [15:0] fp_arg;
 reg  [23:0] fp_tgt;
@@ -490,6 +578,9 @@ wire [15:0] tgt_q15    = (fade_target == 7'd127) ? 16'd32768
 wire [15:0] law_q16    = |dv_q[31:16] ? 16'hffff : dv_q[15:0];
 wire [23:0] step_delta = fade_up ? (fade_tgt - fade_lvl)
                                  : (fade_lvl - fade_tgt);
+wire        law3_busy  = fade_law == 2'd3 &&
+                         ((fade_act && !fade_up) || (fp_pend && !fp_restore));
+wire        db_sel     = fade_law == 2'd3 && !fade_up;   // law-3 fade DOWN
 
 always @(posedge clk) begin
     if (rst) begin
@@ -502,6 +593,8 @@ always @(posedge clk) begin
         fade_act  <= 1'b0;
         auto_stop <= 1'b0;
         dv_go     <= 1'b0;
+        db_mode   <= 1'b0;
+        db_pipe   <= 2'd0;
     end else begin
         auto_stop <= 1'b0;
         dv_go     <= 1'b0;
@@ -511,9 +604,26 @@ always @(posedge clk) begin
             fp_pend  <= 1'b0;
             fade_lvl <= LVL_UNITY;
             fade_act <= 1'b0;
+            db_mode  <= 1'b0;
+            db_pipe  <= 2'd0;
             fs       <= FS_IDLE;
         end else begin
-            if (fade_trig) begin
+            // law-3 dB ramp pipeline: index -> LUT -> multiply -> level
+            case (db_pipe)
+                2'd1: begin db_lut_q <= db_lut(db_acc[21:16]); db_pipe <= 2'd2; end
+                2'd2: begin db_prod  <= db_start * db_lut_q;   db_pipe <= 2'd3; end
+                2'd3: begin
+                    if (fade_act && db_mode) fade_lvl <= db_prod[38:15];
+                    db_pipe <= 2'd0;
+                end
+                default: ;
+            endcase
+            // law 3 (Neo Geo MAKOTO driver, measured): a fade command while a
+            // fade-down is already running is ignored -- the driver stores the
+            // speed and keeps its accumulator; the KO sends 66 of them and the
+            // curve equals a single command's.  Restarting the ramp from the
+            // current level on every repeat would never reach silence.
+            if (fade_trig && !law3_busy) begin
                 fp_pend    <= 1'b1;
                 fp_restore <= 1'b0;
                 fp_stop0   <= fade_stop_at0;
@@ -539,7 +649,7 @@ always @(posedge clk) begin
                     if (fp_restore) begin
                         frames_r <= RESTORE_FRAMES;
                         fs       <= FS_SETUP;
-                    end else if (fade_law == 2'd1 || fade_law == 2'd2) begin
+                    end else if (fade_law != 2'd0) begin
                         dv_num_in <= fade_const1;
                         dv_den_in <= {16'd0, fp_arg};
                         dv_go     <= 1'b1;
@@ -556,21 +666,30 @@ always @(posedge clk) begin
                     fs       <= FS_IDLE;
                 end
                 FS_LAW: if (!dv_bsy && !dv_go) begin
-                    // law 1: frames = const1/arg; law 2: x const2
+                    // law 1: frames = const1/arg; law 2: x const2;
+                    // law 3: const2 + const1/arg (Neo Geo MAKOTO speed byte)
                     if (fade_law == 2'd2)
                         frames_r <= law_q16 * fade_const2[15:0];
+                    else if (fade_law == 2'd3)
+                        frames_r <= dv_q + fade_const2;
                     else
                         frames_r <= (dv_q == 32'd0) ? 32'd1 : dv_q;
                     fs <= FS_SETUP;
                 end
                 FS_SETUP: if (!dv_bsy) begin
-                    dv_num_in <= {8'd0, step_delta};
+                    // dB ramp: Q6.16 index step = (63 << 16) / frames
+                    dv_num_in <= db_sel ? 32'h003f_0000 : {8'd0, step_delta};
                     dv_den_in <= (frames_r == 32'd0) ? 32'd1 : frames_r;
                     dv_go     <= 1'b1;
                     fs        <= FS_STEP;
                 end
                 FS_STEP: if (!dv_bsy && !dv_go) begin
                     fade_step        <= dv_q[23:0];
+                    db_mode          <= db_sel;
+                    db_step          <= dv_q[23:0];
+                    db_acc           <= 24'd0;
+                    db_start         <= fade_lvl;
+                    db_pipe          <= 2'd0;
                     fade_frames_left <= (frames_r == 32'd0) ? 32'd1 : frames_r;
                     fade_act         <= 1'b1;
                     fs               <= FS_IDLE;
@@ -582,6 +701,7 @@ always @(posedge clk) begin
                 if (fade_frames_left <= 32'd1) begin
                     fade_lvl <= fade_tgt;
                     fade_act <= 1'b0;
+                    db_mode  <= 1'b0;
                     // faded out: end the track -- only for fade_out /
                     // master_fade.  A fade_keep that lands on 0 stays
                     // playing at level 0 (muted) until fade-up / restore.
@@ -589,8 +709,12 @@ always @(posedge clk) begin
                         auto_stop <= 1'b1;
                 end else begin
                     fade_frames_left <= fade_frames_left - 32'd1;
-                    fade_lvl <= fade_up ? fade_lvl + fade_step
-                                        : fade_lvl - fade_step;
+                    if (db_mode) begin
+                        db_acc  <= db_acc + db_step;
+                        db_pipe <= 2'd1;
+                    end else
+                        fade_lvl <= fade_up ? fade_lvl + fade_step
+                                            : fade_lvl - fade_step;
                 end
             end
         end

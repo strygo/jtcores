@@ -243,6 +243,12 @@ reg  [ 7:0] h_law, h_ctrl_dflt;
 reg  [15:0] h_ctrl_start;
 reg  [31:0] h_nverbs;
 reg  [63:0] vbuf [0:15];         // 32 control-verb entries, 2 per word
+// format v2 (Neo Geo dialect): 0x12a dialect byte, 0x130..0x14f argument-
+// command bitmap (256 bits, LE).  Emitted to cfg 0x20..0x2f ONLY when the
+// dialect is 2: the CPS taps alias every cfg address into their 0x00..0x07
+// bank, so a v0/v1 pack must never see those writes.
+reg  [ 7:0] h_dialect;
+reg  [63:0] abuf [0:3];
 
 // chunk buffer for the trigger table stream (32 words = 64 rows)
 reg  [63:0] cbuf [0:31];
@@ -270,6 +276,10 @@ wire [ 4:0] map_i   = map_k[5:1];
 wire [63:0] map_w   = vbuf[map_i[4:1]];
 wire [31:0] map_e   = map_i[0] ? map_w[63:32] : map_w[31:0];
 wire        map_val = {27'd0, map_i} < h_nverbs;
+// argset word select for I_CFG (cfg_c = 71..86 -> arg_k = 0..15)
+wire [ 3:0] arg_k   = cfg_c[3:0] - 4'd7;
+wire [63:0] arg_w64 = abuf[arg_k[3:2]];
+wire [15:0] arg_w   = arg_w64[{arg_k[1:0], 4'd0} +: 16];
 
 wire        pf_busy;             // prefetch burst pending/in flight
 
@@ -359,8 +369,9 @@ always @(posedge clk) begin
             I_HDR_GO: begin
                 bt_go   <= 1'b1;
                 bt_addr <= pack_base[31:3];
-                bt_len  <= 8'd37;                    // bytes 0x000..0x127
-                hw_left <= 8'd37;
+                bt_len  <= 8'd42;                    // bytes 0x000..0x14f
+                hw_left <= 8'd42;
+                h_dialect <= 8'd0;
                 ist     <= I_HDR_W;
             end
             I_HDR_W: if (dd_beat) begin
@@ -402,6 +413,9 @@ always @(posedge clk) begin
                         fade_const2 <= dd_data[31:0];
                         h_nverbs    <= dd_data[63:32];
                     end
+                    8'd37: h_dialect <= dd_data[23:16];  // 0x12a (v2; 0 on v0/v1)
+                    8'd38, 8'd39, 8'd40, 8'd41:          // 0x130..0x14f argset
+                        abuf[dd_bidx[1:0] - 2'd2] <= dd_data;
                     default:
                         if (dd_bidx >= 8'd21 && dd_bidx <= 8'd36)
                             vbuf[dd_bidx[4:0] - 5'd21] <= dd_data;
@@ -437,12 +451,21 @@ always @(posedge clk) begin
                         3'd5: cfg_data <= {h_ready, h_pending};
                         default: cfg_data <= h_ctrl_start;
                     endcase
-                end else begin
+                end else if (cfg_c <= 7'd70) begin
                     cfg_addr <= 8'h40 + {2'd0, map_k};
                     cfg_data <= !map_val ? 16'h0000 :
                                 map_k[0] ? {13'd0, map_e[18:16]} :
                                            map_e[15:0];
-                    if (cfg_c == 7'd70) begin
+                    if (cfg_c == 7'd70 && h_dialect != 8'd2) begin
+                        tw_done  <= 12'd0;
+                        tw_total <= tw_clamp;
+                        ist      <= I_TRIG_GO;
+                    end
+                end else begin
+                    // v2 Neo Geo dialect only: argument-command bitmap
+                    cfg_addr <= 8'h20 + {4'd0, arg_k};
+                    cfg_data <= arg_w;
+                    if (cfg_c == 7'd86) begin
                         tw_done  <= 12'd0;
                         tw_total <= tw_clamp;
                         ist      <= I_TRIG_GO;
@@ -664,7 +687,9 @@ always @(posedge clk) begin
                         fade_trig     <= 1'b1;
                         fade_loop_off <= 1'b1;
                         fade_stop_at0 <= 1'b1;
-                        fade_target   <= tgt4;
+                        // law 3 (Neo Geo MAKOTO): the argument is the driver's
+                        // speed byte, not a level -- the target is silence
+                        fade_target   <= (fade_law == 2'd3) ? 7'd0 : tgt4;
                         fade_arg      <= evt_argw;
                     end
                     3'd4: begin
