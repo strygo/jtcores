@@ -64,7 +64,12 @@ module jtcps1_sdram #( parameter
     // Main CPU
     input           main_rom_cs,
     output          main_rom_ok,
+`ifdef CPS2_PRG8
+    output          cps2_prog_ext,
+    input    [21:0] main_rom_addr,
+`else
     input    [20:0] main_rom_addr,
+`endif
     output   [15:0] main_rom_data,
 
     // VRAM
@@ -205,6 +210,16 @@ reg  [20:1] main_addr_x; // main addr modified for object bank access
 reg         ocache_clr, obank_last;
 wire        dump_we;
 
+`ifdef CPS2_PRG8
+// Byte offsets 4..8 MiB contain VRAM, objects, work RAM and sound ROM.
+// Widen the slot AND its cache tags to retain the physical extension bit.
+localparam MAIN_ROM_AW = 23;
+wire [22:0] main_rom_phys = {main_rom_addr[21], 1'b0, main_rom_addr[20:0]};
+`else
+localparam MAIN_ROM_AW = 21;
+wire [20:0] main_rom_phys = main_rom_addr;
+`endif
+
 
 assign gfx0_addr   = {rom0_addr, rom0_half, 1'b0 }; // OBJ
 assign gfx1_addr   = {rom1_addr, rom1_half, 1'b0 };
@@ -235,6 +250,9 @@ jtcps1_prom_we #(
     .PCM_OFFSET ( PCM_OFFSET    ),
     .SND_OFFSET ( SND_OFFSET    )
 ) u_prom_we(
+`ifdef CPS2_PRG8
+    .cps2_prog_ext   ( cps2_prog_ext ),
+`endif
     .clk            ( clk           ),
     .ioctl_rom      ( ioctl_rom     ),
     .ioctl_addr     ( ioctl_addr    ),
@@ -276,7 +294,7 @@ jtframe_ram1_5slots #(
     .SLOT2_DOUBLE(  1            ),
     .SLOT2_OFFSET( ORAM_OFFSET   ),
 
-    .SLOT3_AW    ( 21            ), // Main CPU ROM
+    .SLOT3_AW    ( MAIN_ROM_AW   ), // Main CPU ROM, including physical cache tags
     .SLOT3_DW    ( 16            ),
     .SLOT3_LATCH (  1            ),
     .SLOT3_DOUBLE(  1            ),
@@ -314,7 +332,7 @@ jtframe_ram1_5slots #(
     .slot0_addr  ( main_addr_x   ),
     .slot1_addr  ( vram_dma_addr ),
     .slot2_addr  ( gfx_oram_addr ),
-    .slot3_addr  ( main_rom_addr ),
+    .slot3_addr  ( main_rom_phys ),
     .slot4_addr  ( snd_addr      ),
 
     .slot0_dout  ( main_ram_data ),

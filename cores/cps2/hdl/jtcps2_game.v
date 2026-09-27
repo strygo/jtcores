@@ -32,7 +32,12 @@ wire [22:0] qsnd_addr;
 wire        prog_qsnd;
 wire [ 7:0] snd_data, qsnd_data;
 wire [17:1] ram_addr;
+`ifdef CPS2_PRG8
+wire [22:1] main_rom_addr;
+wire        prog_ext;
+`else
 wire [21:1] main_rom_addr;
+`endif
 wire [15:0] main_ram_data, main_rom_data, main_dout, mmr_dout;
 wire        main_rom_ok, main_ram_ok;
 wire        ppu1_cs, ppu2_cs, ppu_rstn, objcfg_cs;
@@ -128,6 +133,9 @@ wire busack_cpu;
 assign busack = busack_cpu | turbo;
 
 jtcps2_main u_main(
+`ifdef CPS2_PRG8
+    .prog_ext    ( prog_ext         ),
+`endif
     .rst        ( rst_game          ),
     .clk_rom    ( clk               ),
     .clk        ( clk48             ),
@@ -521,6 +529,9 @@ jtframe_limsum #(.WI(16), .K(2)) u_cpsp_mixr(
 `endif
 /* verilator tracing_on */
 jtcps1_sdram #(.CPS(2), .REGSIZE(REGSIZE)) u_sdram (
+`ifdef CPS2_PRG8
+    .cps2_prog_ext ( prog_ext       ),
+`endif
     .rst         ( rst_sdram     ),
     .clk         ( clk           ),
     .clk_gfx     ( clk_gfx       ),

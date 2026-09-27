@@ -45,6 +45,9 @@ parameter [ 5:0] CFG_BYTE   =6'd39  // location of the byte with encoder informa
     // CPS2 keys
     output reg           cps2_key_we,
     output reg [ 1:0]    joymode
+`ifdef CPS2_PRG8
+    ,output reg         cps2_prog_ext = 1'b0
+`endif
 );
 
 assign dwnld_busy = ioctl_rom;
@@ -95,6 +98,36 @@ wire is_oki    = bulk_addr[25:10] < gfx_start  && bulk_addr[25:10] >=pcm_start;
 wire is_gfx    = bulk_addr[25:10] < qsnd_start && bulk_addr[25:10] >=gfx_start;
 wire is_qsnd   = ioctl_addr >= FULL_HEADER && bulk_addr[25:10] >=qsnd_start; // Q-Sound ROM
 
+`ifdef CPS2_PRG8
+// Prototype header bytes 12..15: "C2", version 1, program capability 1.
+// A fresh download clears authorization at byte 0; a user reset retains it.
+// Only a complete, ordered marker with an exact 8 MiB CPU region enables it.
+reg [2:0] ext_header_step = 0;
+always @(posedge clk) begin
+    if (ioctl_wr && ioctl_rom && !ioctl_ram) begin
+        if (ioctl_addr==0) begin
+            cps2_prog_ext <= 0;
+            ext_header_step <= 0;
+        end else if (ioctl_addr==12) begin
+            cps2_prog_ext <= 0;
+            ext_header_step <= ioctl_dout==8'h43 ? 1 : 0;
+        end else if (ioctl_addr==13) begin
+            ext_header_step <= ext_header_step==1 && ioctl_dout==8'h32 ? 2 : 0;
+        end else if (ioctl_addr==14) begin
+            ext_header_step <= ext_header_step==2 && ioctl_dout==8'h01 ? 3 : 0;
+        end else if (ioctl_addr==15) begin
+            cps2_prog_ext <= ext_header_step==3 && ioctl_dout==8'h01 && snd_start==16'h2000;
+            ext_header_step <= 0;
+        end
+    end
+end
+wire [22:0] cpu_phys = cps2_prog_ext ? {cpu_addr[22], 1'b0, cpu_addr[21:1]} : cpu_addr[23:1];
+wire cpu_allowed = !is_cpu || (cps2_prog_ext ? bulk_addr<26'h0800000 : bulk_addr<26'h0400000);
+`else
+wire [22:0] cpu_phys = cpu_addr[23:1];
+wire cpu_allowed = 1'b1;
+`endif
+
 reg       decrypt, pang3, pang3_bit;
 reg [7:0] pang3_decrypt;
 
@@ -135,7 +168,7 @@ always @(posedge clk) begin
         pre_data  <= pang3 ?
             pang3_decrypt : ioctl_dout;
         prog_mask <= !ioctl_addr[0] ? 2'b10 : 2'b01;
-        prog_addr <= is_cpu ? bulk_addr[23:1] + CPU_OFFSET : (
+        prog_addr <= is_cpu ? cpu_phys + CPU_OFFSET : (
                      is_snd ?  snd_addr[23:1] + SND_OFFSET : (
                      is_oki ?  pcm_addr[23:1] + PCM_OFFSET :
                      is_gfx ?  {gfx_addr[24],gfx_addr[22:1]} + GFX_OFFSET : {10'd0, bulk_addr[12:0]}));
@@ -159,7 +192,7 @@ always @(posedge clk) begin
                     {decrypt, pang3_bit} <= ioctl_dout[7:6];
             end else if(ioctl_addr>=FULL_HEADER) begin
                 cfg_we    <= 1'b0;
-                prog_we   <= ~is_qsnd;
+                prog_we   <= ~is_qsnd && cpu_allowed;
                 prom_we   <=  is_qsnd;
             end else if( ioctl_addr[5:0] == JOY_BYTE ) begin
                 joymode <= ioctl_dout[1:0]; // only CPS2
