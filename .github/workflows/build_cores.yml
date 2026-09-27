@@ -57,7 +57,8 @@ jobs:
         run: |
           src=fitter_results/cpsplus/jtcps2.rbf
           if [ -f "$src" ]; then
-            cp "$src" "fitter_results/jtcps2-prg8-$PROFILE.rbf"
+            # Quartus runs as root inside the container and owns this directory.
+            sudo cp "$src" "fitter_results/jtcps2-prg8-$PROFILE.rbf"
           fi
       - uses: actions/upload-artifact@v4
         if: always()

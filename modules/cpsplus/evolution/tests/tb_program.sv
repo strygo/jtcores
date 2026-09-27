@@ -3,6 +3,8 @@
 module tb_program;
 reg clk=0;
 always #5 clk=~clk;
+reg clk_cpu=0;
+always #10 clk_cpu=~clk_cpu; // preserve the core's 96:48 MHz domain ratio
 reg rst=1, lvbl=1;
 reg [7:0] ioctl_dout=0;
 reg [25:0] ioctl_addr=0;
@@ -61,7 +63,7 @@ end
 endtask
 
 jtcps2_main main(
-    .rst(rst|hold_rst|ioctl_rom), .clk(clk), .clk_rom(clk), .prog_ext(ext),
+    .rst(rst|hold_rst|ioctl_rom), .clk(clk_cpu), .clk_rom(clk), .prog_ext(ext),
     .V(9'd0), .LVBL(lvbl), .LHBL(1'b1), .skip_en(1'b0),
     .mmr_dout(16'hffff), .raster(1'b0),
     .UDSWn(udswn), .LDSWn(ldswn), .prog_din(ioctl_dout), .key_we(key_we),
@@ -77,7 +79,7 @@ jtcps2_main main(
     .volume(13'd0), .debug_bus(8'd0)
 );
 jtcps1_sdram #(.CPS(2)) sdram(
-    .rst(rst), .clk(clk), .clk_cpu(clk), .clk_gfx(clk), .LVBL(lvbl), .hold_rst(hold_rst),
+    .rst(rst), .clk(clk), .clk_cpu(clk_cpu), .clk_gfx(clk), .LVBL(lvbl), .hold_rst(hold_rst),
     .ioctl_rom(ioctl_rom), .ioctl_addr(ioctl_addr), .ioctl_dout(ioctl_dout),
     .ioctl_wr(ioctl_wr), .ioctl_ram(1'b0), .prog_rdy(1'b1),
     .prog_addr(prog_addr), .prog_ba(prog_ba), .prog_mask(prog_mask),
@@ -185,7 +187,7 @@ initial begin
     wait(mem['h300000]===16'h0000);
     wait(mem['h300000]===16'h600d);
     if(ext!==1 || !irq_sent) $fatal(1,"reset lost extension or skipped interrupt");
-    $display("PASS CPU run 2: reset clears RAM/cache and preserves image capability");
+    $display("PASS CPU run 2: reset restarts diagnostic, invalidates cache and preserves image capability");
     force main.A=sweep_address;
     force main.ASn=0;
     force main.BGACKn=1;
@@ -216,6 +218,16 @@ initial begin
         end
     end
     $display("PASS decode: %0d cases, legacy/extension selection, device isolation and opcode/data views",decode_checks);
+    force main.RnW=0;
+    sweep_enable=1; sweep_address=23'h500000;
+    repeat(6) @(negedge clk);
+    if(rom_cs || main.pre_ram_cs || main.pre_vram_cs || main.pre_oram_cs)
+        $fatal(1,"extension write selected ROM or RAM");
+    force main.BGACKn=0;
+    force main.RnW=1;
+    repeat(6) @(negedge clk);
+    if(rom_cs) $fatal(1,"CPU extension request asserted during DMA bus ownership");
+    $display("PASS extension write rejection and DMA bus ownership");
     $finish;
 end
 endmodule
