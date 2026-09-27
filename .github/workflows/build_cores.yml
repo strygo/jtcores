@@ -49,7 +49,7 @@ jobs:
             -e CORE=cps2 -e SKIP_STOCK=1 -e SEED="$SEED" -e TRIALS="$TRIALS" \
             -e JTCORE_EXTRA="$extra" -v "$PWD":/jtcores \
             jotego/jtcore20@sha256:58a69912d36b33952253c6c7245bf80ada8ae000084a03e6479d46e9e913baec \
-            bash /jtcores/.github/scripts/fitter_ab.sh /jtcores /jtcores/fitter_results
+            /jtcores/.github/scripts/fitter_ab.sh /jtcores /jtcores/fitter_results
       - name: Name prototype distinctly from production cores
         if: always()
         env:

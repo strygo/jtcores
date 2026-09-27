@@ -44,7 +44,8 @@ From the Capcom repository root:
 
 ```
 python3 cpsplus/evolution/run_gate.py
-python3 cpsplus/evolution/run_gate.py --work cpsplus/work/evolution-clean
+python3 cpsplus/evolution/run_gate.py --work cpsplus/evolution/work/clean
+python3 cpsplus/evolution/run_gate.py --with-game-hook
 ```
 
 The command fetches the pinned core and its required submodules, verifies
@@ -53,6 +54,18 @@ committed Gold toolchain recipe in a separate cache, and builds/runs the
 Verilator tests. It requires Python 3, Git, a C++ compiler, make and
 Verilator. The default output directory is disposable; nothing in it is a
 source input. Existing source caches with unknown edits are rejected.
+
+The optional game-hook gate discovers canonical `sfa3.zip` and `qsound.zip`
+through the repository ROM paths, `CAPCOM_ARCADE_ROM_PATH`, or `--rompath`.
+It verifies the pinned stock MRA and every input member CRC, produces four
+isolated MRAs (baseline, legacy mode, enhanced mode with unchanged program,
+and reset hook), and checks the hook using the real CPU/decrypt RTL. Only four
+encrypted reset-vector bytes change; all other original program bytes and
+assets remain byte-identical. The 70-byte plaintext hook checks extension
+boundaries, preserves registers/SR/stack, and jumps to the original reset
+entry. A failed check stops there. Reaching that entry does not establish
+that the complete game boots or that its internal ROM tests accept the patch.
+No source ROM archives are modified or included in the public core branch.
 
 The original diagnostic assembly contains no game assets. The CPU test
 uses the actual fx68k, CPS2 main/decrypt logic and shared SDRAM slots/cache;

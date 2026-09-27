@@ -145,16 +145,35 @@ end
 endtask
 integer i;
 reg [63:0] starts=64'hb080308020802000;
+reg [7:0] rom_key[0:19];
+reg hook_mode=0;
+integer reset_entry, entry_opcode;
 initial begin
+    hook_mode=$test$plusargs("HOOK");
     // Sparse ROM image was constructed through the tested download mapping.
-    $readmemh("program.hex",mem);
+    if(hook_mode) begin
+        $readmemh("hook-program.hex",mem);
+        $readmemh("key.hex",rom_key);
+        if(!$value$plusargs("ENTRY=%h",reset_entry) || !$value$plusargs("OPCODE=%h",entry_opcode))
+            $fatal(1,"missing verified original entry identity");
+    end else begin
+        $readmemh("program.hex",mem);
+        for(i=0;i<20;i=i+1) rom_key[i]=8'hff;
+    end
     for(i=0;i<8;i=i+1) put(i,starts[i*8+:8]);
     for(i=8;i<12;i=i+1) put(i,8'hff);
     put(12,8'h43); put(13,8'h32); put(14,1); put(15,1);
-    for(i=16;i<64;i=i+1) put(i,8'hff); // plaintext diagnostic key
+    for(i=16;i<44;i=i+1) put(i,8'hff);
+    for(i=0;i<20;i=i+1) put(44+i,rom_key[i]);
     repeat(20) @(negedge clk);
     if(ext!==1) $fatal(1,"extension header not enabled");
     ioctl_rom=0; rst=0;
+    if(hook_mode) begin
+        wait(!hold_rst && main.A==reset_entry[23:1] && main.FC==6 && rom_ok && main.rom_ok2 && main.rom_dec==entry_opcode[15:0]);
+        if(ext_reads<4) $fatal(1,"game hook never traversed extension");
+        $display("PASS SFA3 hook: encrypted reset vector executes plaintext extension and returns to original encrypted entry %h; full-game boot remains untested",reset_entry);
+        $finish;
+    end
     wait(mem['h300000]===16'h600d);
     if(ext_reads<5 || !irq_sent || mem['h300002]!==16'h6789)
         $fatal(1,"insufficient execution coverage");
