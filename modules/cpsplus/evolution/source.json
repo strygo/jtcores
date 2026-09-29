@@ -14,10 +14,18 @@
   "extension_sdram_byte_start": 8388608,
   "header_marker_offset": 12,
   "header_marker_hex": "43320101",
-  "stock_control": {
-    "repository": "jotego/jtbin",
-    "revision": "9c90b2ec74f6f8acf2ff5abe0fc923fd977f445d",
-    "path": "mra/Street Fighter Alpha 3 (Europe 980904).mra",
-    "sha256": "467edcf36ae9041e2b5271dbd8f8dbbba0eda17d30162ef51fc570e75289f541"
+  "stock_controls": {
+    "sfa3": {
+      "repository": "jotego/jtbin",
+      "revision": "9c90b2ec74f6f8acf2ff5abe0fc923fd977f445d",
+      "path": "mra/Street Fighter Alpha 3 (Europe 980904).mra",
+      "sha256": "467edcf36ae9041e2b5271dbd8f8dbbba0eda17d30162ef51fc570e75289f541"
+    },
+    "vsav2": {
+      "repository": "jotego/jtbin",
+      "revision": "9c90b2ec74f6f8acf2ff5abe0fc923fd977f445d",
+      "path": "mra/Vampire Savior 2 The Lord of Vampire (Japan 970913).mra",
+      "sha256": "20cde4b0107797778037774e3b001a3718eb3c362ef2e387c189caaa12d0b4bb"
+    }
   }
 }

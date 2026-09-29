@@ -1,209 +1,497 @@
 {
+ "schema_version": 1,
+ "date": "2026-09-28",
+ "status": "RTL_gates_pass_with_patch_0002_fpga_build_pending_hardware_smoke_recorded_for_patch_0001_only",
+ "reproduce": [
+  "python3 cpsplus/evolution/run_gate.py --with-game-hook --machine vsav2",
+  "python3 cpsplus/evolution/run_gate.py --with-game-hook"
+ ],
+ "fresh_empty_scratch_run": true,
+ "rtl": {
   "schema_version": 1,
-  "date": "2026-09-27",
-  "status": "RTL_image_and_reported_Quartus_timing_pass_hardware_pending",
-  "reproduce": "python3 cpsplus/evolution/run_gate.py --with-game-hook",
-  "fresh_empty_scratch_run": true,
-  "rtl": {
-    "schema_version": 1,
-    "source_revision": "8e73fb10ef1cb8a539ec94db2a0f68ef89eb689c",
-    "patch_sha256": "4e1dacaa1c097002c1a1596f033aca9bd92a4bb44d440bcbd94dccb9adaa90b5",
-    "verilator_version": "Verilator 5.050 2026-07-01 rev vUNKNOWN-built20260701",
-    "generator_sha256": {
-      "prepare.py": "db708fa069e2209fa3ece963424546c4458a7715953fa038b907e641e9c36799",
-      "run_gate.py": "01ca1cc57cdb749afa74526bdb564cafa0402472e8a3c2ea9cc72badbb1db067",
-      "build_controls.py": "e28307d3bef85c1a3ecf3a2bdd0d8b57352330b1156f1862e1898b8f4e51bde7",
-      "tests/tb_loader.sv": "11ab7279f4dbba4080c9d6d1bacf6ad4d5869d5f16d703ff0d6e0c13aefaa8e3",
-      "tests/tb_program.sv": "0c27b4f58d2174c377d2ef58ae8a9d3b0b7241e8c8d1c4525212ed756a8d8ebc",
-      "diagnostics/base.s": "4bf09a3e6598e00faa95536cd7720ffd78d24c11eb4f181558fca79e710b366f",
-      "diagnostics/extension.s": "bbe914c08a5d57e43207089f18480db3f45d120ea484b53b122b8af1b6bc29a1",
-      "diagnostics/game_hook.s": "59a001c313cdd92597df377f8912d084a338a5986f8535dab4455c5b62972d01"
-    },
-    "diagnostics": {
-      "base": "818e3eb454ecb2e24d3719b6d70f4c8518fc5eb971bb275d0e2301bdca1b6c31",
-      "extension": "0d5259abcf6087c7687fc588b028e40706253ea8b82362dd3d77d990aea2657b"
-    },
-    "tests": {
-      "loader": [
-        "PASS loader: 65540 CPU mappings, byte lanes, region boundaries, malformed headers, reload"
-      ],
-      "program": [
-        "PASS CPU run 1: extension JSR/RTS, data, split boundary, cache alternation, interrupt/RTE (153 ROM bursts)",
-        "PASS CPU run 2: reset restarts diagnostic, invalidates cache and preserves image capability",
-        "PASS decode: 262272 cases, legacy/extension selection, device isolation and opcode/data views",
-        "PASS extension write rejection and DMA bus ownership"
-      ],
-      "sfa3_hook": [
-        "PASS SFA3 hook: encrypted reset vector executes plaintext extension and returns to original encrypted entry 0000091e; full-game boot remains untested"
-      ]
-    },
-    "hardware_validated": false
+  "source_revision": "8e73fb10ef1cb8a539ec94db2a0f68ef89eb689c",
+  "patches": {
+   "0001-program-window.patch": "4e1dacaa1c097002c1a1596f033aca9bd92a4bb44d440bcbd94dccb9adaa90b5",
+   "0002-decrypt-range.patch": "5113187aae5dddd71b3a96c0ab06774a2e78ec7c4e6d85101e4603b63833913c"
   },
-  "sfa3_controls": {
-    "schema_version": 1,
-    "machine": "sfa3",
-    "inputs": {
-      "sfa3.key": {
-        "bytes": 20,
-        "sha256": "3f3ae6bdc607c0dd33d4c5ccf23ceabed466e465011f0b900150e81cb16ac540",
-        "crc32": "54fa39c6"
-      },
-      "sz3e.03c": {
-        "bytes": 524288,
-        "sha256": "d16f85e977ac2db6de1e3c857132df8cb1f0fa4ea7bb2b5d98299957a92e9c87",
-        "crc32": "9762b206"
-      },
-      "sz3e.04c": {
-        "bytes": 524288,
-        "sha256": "2d56fea18bd0e17c165760de670c87d6785704d08795987a38e6b01c6591df6d",
-        "crc32": "5ad3f721"
-      },
-      "sz3.05c": {
-        "bytes": 524288,
-        "sha256": "8a6b29435cdbad9316bbaec21bd6afc7a6aa477ae697b9c5d1dcc22eb62af597",
-        "crc32": "57fd0a40"
-      },
-      "sz3.06c": {
-        "bytes": 524288,
-        "sha256": "bf18c48cdff4f763eb2b7a17b948db99e4cf85092d63aa53f1356c69cdb85e4c",
-        "crc32": "f6305f8b"
-      },
-      "sz3.07c": {
-        "bytes": 524288,
-        "sha256": "62341a6cc7aa7a2e7db91111b40d244c2e97ba8e3e15449ff4d2ef20acfd02ca",
-        "crc32": "6eab0f6f"
-      },
-      "sz3.08c": {
-        "bytes": 524288,
-        "sha256": "13572160c616147e10d2f233d83cc3beee45124afd5e1fc2566606c12c1f66a4",
-        "crc32": "910c4a3b"
-      },
-      "sz3.09c": {
-        "bytes": 524288,
-        "sha256": "cbaf65b8c45a1cc6e46e4100c22670a930511afdf31bc5e7c956014705f5e1ac",
-        "crc32": "b29e5199"
-      },
-      "sz3.10b": {
-        "bytes": 524288,
-        "sha256": "59054c279b444df0d04aef8c596b83092a73ee68434f64706711a61d08bdba32",
-        "crc32": "deb2ff52"
-      },
-      "sz3.01": {
-        "bytes": 131072,
-        "sha256": "a9e36a8822f84145ac631ac48c4cdb39d04ff40d86189c8d1a6df86a785acf93",
-        "crc32": "de810084"
-      },
-      "sz3.02": {
-        "bytes": 131072,
-        "sha256": "a4b0b4edb38a8b89122829a5cb879b3c10b823aee4a7e77da018b8270549a076",
-        "crc32": "72445dc4"
-      },
-      "sz3.11m": {
-        "bytes": 4194304,
-        "sha256": "2212e03d31828a9ebfd88f1139d4c46e3009b5c9ae8b8b9a161c40642df6d89f",
-        "crc32": "1c89eed1"
-      },
-      "sz3.12m": {
-        "bytes": 4194304,
-        "sha256": "036c45bf1a5d4b30c23ca67a5926829bbd74dcaa084e30582ba6979a77b0100a",
-        "crc32": "f392b13a"
-      },
-      "sz3.13m": {
-        "bytes": 4194304,
-        "sha256": "607cc7ae7ad9f2e75bba789e4445486fcdab9aa60c19da442b17317cf41934eb",
-        "crc32": "0f7a60d9"
-      },
-      "sz3.15m": {
-        "bytes": 4194304,
-        "sha256": "8ee7453b186d586475429b8caf23dae69f88fdcd709a3752fc9d8afa4451548d",
-        "crc32": "8e933741"
-      },
-      "sz3.17m": {
-        "bytes": 4194304,
-        "sha256": "2bfd9d1ba38addcb4a94bd0e169ac5f4b8f3542acc4092de6cdf98f952f940c9",
-        "crc32": "d6e98147"
-      },
-      "sz3.19m": {
-        "bytes": 4194304,
-        "sha256": "7f475ffe1fe39940d354bb591adb4f560e01ce85a9a70d3c32d8d8f9a3532a1d",
-        "crc32": "f31a728a"
-      },
-      "sz3.14m": {
-        "bytes": 4194304,
-        "sha256": "9123efcf41b1108ae11a699cacb5e133b3958c40be98eb33674d3878257a7c7c",
-        "crc32": "5ff98297"
-      },
-      "sz3.16m": {
-        "bytes": 4194304,
-        "sha256": "9bef2913ef07035376ce9db1121a6a298c93f14045ece5751f444d19919117ff",
-        "crc32": "52b5bdee"
-      },
-      "sz3.18m": {
-        "bytes": 4194304,
-        "sha256": "df31e61932e7ba0111045978b13ec258760a03fcbd41c3594b892006ae2c9ec0",
-        "crc32": "40631ed5"
-      },
-      "sz3.20m": {
-        "bytes": 4194304,
-        "sha256": "8e915ceffc3c20f887ecf65940e85816b94ee221a8f8149c0bd4d9b727c250d4",
-        "crc32": "763409b4"
-      },
-      "dl-1425.bin": {
-        "bytes": 24576,
-        "sha256": "524a25bcd153be24594d37c0dbd334fe4f384f77da73c2058dc60fc1f581cf18",
-        "crc32": "d6cf5ef5"
-      }
-    },
-    "original_reset_pc": 2334,
-    "initial_stack_pointer": 16744448,
-    "original_entry_opcode": 13308,
+  "verilator_version": "Verilator 5.050 2026-07-01 rev vUNKNOWN-built20260701",
+  "generator_sha256": {
+   "prepare.py": "902521962f5272689b2ce15047b1264ede60938ae9707af43fd36753a65463f7",
+   "run_gate.py": "15f04d3df7780d09fc53d88c108d29f0de1e7f3867f7b130cb7c969630e0a0e6",
+   "build_controls.py": "154866c2eddec4679f433db478d41e76b4d406d48fbfb58c10f4ef573fc2bc79",
+   "tests/tb_loader.sv": "11ab7279f4dbba4080c9d6d1bacf6ad4d5869d5f16d703ff0d6e0c13aefaa8e3",
+   "tests/tb_program.sv": "bb82af43a16f0ad620c63029373ac4de36f94b5913c491860aff0c3e9c18526b",
+   "diagnostics/base.s": "4bf09a3e6598e00faa95536cd7720ffd78d24c11eb4f181558fca79e710b366f",
+   "diagnostics/extension.s": "bbe914c08a5d57e43207089f18480db3f45d120ea484b53b122b8af1b6bc29a1",
+   "diagnostics/game_hook.s": "55eacd2c973cc2c333e4e1f1fcf1e8e4308dbac0e1f29e06d93a10b5512743f3",
+   "diagnostics/window_hook.s": "26975751db23ba53c5fbaf6778bc0ef02e06b11ce1128caa393e01a3ccb9f9cb"
+  },
+  "diagnostics": {
+   "base": "818e3eb454ecb2e24d3719b6d70f4c8518fc5eb971bb275d0e2301bdca1b6c31",
+   "extension": "0d5259abcf6087c7687fc588b028e40706253ea8b82362dd3d77d990aea2657b"
+  },
+  "tests": {
+   "loader": [
+    "PASS loader: 65540 CPU mappings, byte lanes, region boundaries, malformed headers, reload"
+   ],
+   "program": [
+    "PASS CPU run 1: extension JSR/RTS, data, split boundary, cache alternation, interrupt/RTE (153 ROM bursts)",
+    "PASS CPU run 2: reset restarts diagnostic, invalidates cache and preserves image capability",
+    "PASS decode: 262272 cases, legacy/extension selection, device isolation and opcode/data views",
+    "PASS key range: 16448 cases, opcode fetches decrypted only through page ~field (1 MiB and whole-window keys), data and extension untouched",
+    "PASS extension write rejection and DMA bus ownership"
+   ],
+   "vsav2_hook": [
+    "PASS game hook: encrypted reset vector executes plaintext extension and returns to original encrypted entry 00000926; full-game boot remains untested"
+   ],
+   "vsav2_hook2": [
+    "PASS game hook: encrypted reset vector executes plaintext code above the key bound inside the original window, then the extension, and returns to original encrypted entry 00000926; full-game boot remains untested"
+   ]
+  },
+  "hardware_validated": false
+ },
+ "sfa3_controls": {
+  "schema_version": 2,
+  "machine": "sfa3",
+  "inputs": {
+   "sfa3.key": {
+    "bytes": 20,
+    "sha256": "3f3ae6bdc607c0dd33d4c5ccf23ceabed466e465011f0b900150e81cb16ac540",
+    "crc32": "54fa39c6"
+   },
+   "sz3e.03c": {
+    "bytes": 524288,
+    "sha256": "d16f85e977ac2db6de1e3c857132df8cb1f0fa4ea7bb2b5d98299957a92e9c87",
+    "crc32": "9762b206"
+   },
+   "sz3e.04c": {
+    "bytes": 524288,
+    "sha256": "2d56fea18bd0e17c165760de670c87d6785704d08795987a38e6b01c6591df6d",
+    "crc32": "5ad3f721"
+   },
+   "sz3.05c": {
+    "bytes": 524288,
+    "sha256": "8a6b29435cdbad9316bbaec21bd6afc7a6aa477ae697b9c5d1dcc22eb62af597",
+    "crc32": "57fd0a40"
+   },
+   "sz3.06c": {
+    "bytes": 524288,
+    "sha256": "bf18c48cdff4f763eb2b7a17b948db99e4cf85092d63aa53f1356c69cdb85e4c",
+    "crc32": "f6305f8b"
+   },
+   "sz3.07c": {
+    "bytes": 524288,
+    "sha256": "62341a6cc7aa7a2e7db91111b40d244c2e97ba8e3e15449ff4d2ef20acfd02ca",
+    "crc32": "6eab0f6f"
+   },
+   "sz3.08c": {
+    "bytes": 524288,
+    "sha256": "13572160c616147e10d2f233d83cc3beee45124afd5e1fc2566606c12c1f66a4",
+    "crc32": "910c4a3b"
+   },
+   "sz3.09c": {
+    "bytes": 524288,
+    "sha256": "cbaf65b8c45a1cc6e46e4100c22670a930511afdf31bc5e7c956014705f5e1ac",
+    "crc32": "b29e5199"
+   },
+   "sz3.10b": {
+    "bytes": 524288,
+    "sha256": "59054c279b444df0d04aef8c596b83092a73ee68434f64706711a61d08bdba32",
+    "crc32": "deb2ff52"
+   },
+   "sz3.01": {
+    "bytes": 131072,
+    "sha256": "a9e36a8822f84145ac631ac48c4cdb39d04ff40d86189c8d1a6df86a785acf93",
+    "crc32": "de810084"
+   },
+   "sz3.02": {
+    "bytes": 131072,
+    "sha256": "a4b0b4edb38a8b89122829a5cb879b3c10b823aee4a7e77da018b8270549a076",
+    "crc32": "72445dc4"
+   },
+   "sz3.11m": {
+    "bytes": 4194304,
+    "sha256": "2212e03d31828a9ebfd88f1139d4c46e3009b5c9ae8b8b9a161c40642df6d89f",
+    "crc32": "1c89eed1"
+   },
+   "sz3.12m": {
+    "bytes": 4194304,
+    "sha256": "036c45bf1a5d4b30c23ca67a5926829bbd74dcaa084e30582ba6979a77b0100a",
+    "crc32": "f392b13a"
+   },
+   "sz3.13m": {
+    "bytes": 4194304,
+    "sha256": "607cc7ae7ad9f2e75bba789e4445486fcdab9aa60c19da442b17317cf41934eb",
+    "crc32": "0f7a60d9"
+   },
+   "sz3.15m": {
+    "bytes": 4194304,
+    "sha256": "8ee7453b186d586475429b8caf23dae69f88fdcd709a3752fc9d8afa4451548d",
+    "crc32": "8e933741"
+   },
+   "sz3.17m": {
+    "bytes": 4194304,
+    "sha256": "2bfd9d1ba38addcb4a94bd0e169ac5f4b8f3542acc4092de6cdf98f952f940c9",
+    "crc32": "d6e98147"
+   },
+   "sz3.19m": {
+    "bytes": 4194304,
+    "sha256": "7f475ffe1fe39940d354bb591adb4f560e01ce85a9a70d3c32d8d8f9a3532a1d",
+    "crc32": "f31a728a"
+   },
+   "sz3.14m": {
+    "bytes": 4194304,
+    "sha256": "9123efcf41b1108ae11a699cacb5e133b3958c40be98eb33674d3878257a7c7c",
+    "crc32": "5ff98297"
+   },
+   "sz3.16m": {
+    "bytes": 4194304,
+    "sha256": "9bef2913ef07035376ce9db1121a6a298c93f14045ece5751f444d19919117ff",
+    "crc32": "52b5bdee"
+   },
+   "sz3.18m": {
+    "bytes": 4194304,
+    "sha256": "df31e61932e7ba0111045978b13ec258760a03fcbd41c3594b892006ae2c9ec0",
+    "crc32": "40631ed5"
+   },
+   "sz3.20m": {
+    "bytes": 4194304,
+    "sha256": "8e915ceffc3c20f887ecf65940e85816b94ee221a8f8149c0bd4d9b727c250d4",
+    "crc32": "763409b4"
+   },
+   "dl-1425.bin": {
+    "bytes": 24576,
+    "sha256": "524a25bcd153be24594d37c0dbd334fe4f384f77da73c2058dc60fc1f581cf18",
+    "crc32": "d6cf5ef5"
+   }
+  },
+  "original_reset_pc": 2334,
+  "initial_stack_pointer": 16744448,
+  "original_entry_opcode": 13308,
+  "key_encrypted_words": [
+   0,
+   524288
+  ],
+  "hooks": {
+   "hook": {
     "original_program_bytes_changed": 4,
-    "patch_range": [
-      4,
-      8
+    "patch_offsets": [
+     "0x44"
     ],
-    "cipher_round_trip": true,
-    "outside_patch_byte_identical": true,
-    "hook_code_bytes": 70,
-    "extension_sha256": "0ac3c67720a449db16dce351252152bf521e45a5145f5939c0238d120b44d469",
-    "addon_sha256": "b20faf4243014769e9f10599926ceeb8bf71acf97ccd025931d9f7eaf8dd13f3",
-    "mra_sha256": {
-      "SFA3 PRG8 baseline.mra": "3bf50d5028f5c588a6e8136ea34809006a7f7a226cfb0c4783404b8797e2b1be",
-      "SFA3 PRG8 legacy.mra": "3327a4ced47ab94afb80a89c355c99e96cfe07b3261ab8592507bdf661271aaf",
-      "SFA3 PRG8 enabled.mra": "7c107983369e0a6fb6855d0ba83e0dafa9abf3eef9c1a46cb531568b8971ed4f",
-      "SFA3 PRG8 hook.mra": "5a4a02769bc82eeb9470b11085bcb60852ae4b6062677139904cf5984b68beeb"
-    },
-    "full_game_boot_validated": false,
-    "hardware_validated": false,
-    "assembled_images": {
-      "baseline": {
-        "bytes": 46407744,
-        "sha256": "4c6aea45d0e81990cc931d70c39c489b0ef35256538a14dfb5515944676d5a99"
-      },
-      "legacy": {
-        "bytes": 46407744,
-        "sha256": "4c6aea45d0e81990cc931d70c39c489b0ef35256538a14dfb5515944676d5a99"
-      },
-      "enabled": {
-        "bytes": 50602048,
-        "sha256": "e2799e48db87b6500c8e1ff306b17c54bcf528c854f2ff3f85fb435db23203b2"
-      },
-      "hook": {
-        "bytes": 50602048,
-        "sha256": "d8085dca8ae7f9e7f343a8785381057a196e15767368f3a14b49cdc7522a3fa7"
-      }
-    }
+    "cipher_round_trip": true
+   }
   },
-  "quartus_run": {
-    "id": 36351443421,
-    "url": "https://github.com/strygo/jtcores/actions/runs/36351443421",
-    "status": "completed",
-    "workflow_conclusion": "failure",
-    "compile_and_timing": "success_both_profiles",
-    "packaging": "recovered_original_artifacts_after_naming_permission_failure",
-    "record": "quartus_build.json",
-    "hardware_test_kit_ready": true
+  "hook_programs": {
+   "hook": {
+    "hex": "hook-program.hex",
+    "in_window": false
+   }
   },
+  "hook_code_bytes": 590,
+  "window_code_bytes": 0,
+  "extension_sha256": "548988baf16b8aa593c881ee5a6b08a785534e670274af19234bdbde95292e56",
+  "addon_sha256": "1b65084657fce004a4e408d569bf28de308ddd621123253883cc77cce6d8eaa5",
+  "mra_sha256": {
+   "SFA3 PRG8 baseline.mra": "3bf50d5028f5c588a6e8136ea34809006a7f7a226cfb0c4783404b8797e2b1be",
+   "SFA3 PRG8 legacy.mra": "3327a4ced47ab94afb80a89c355c99e96cfe07b3261ab8592507bdf661271aaf",
+   "SFA3 PRG8 hook.mra": "b1e81537740740131548f732692ef9be6714986c63cee9d09d22cf16ad8960a9"
+  },
+  "full_game_boot_validated": false,
   "hardware_validated": false,
-  "complete_hsfa_fit_proven": false
+  "assembled_images": {
+   "baseline": {
+    "bytes": 46407744,
+    "sha256": "4c6aea45d0e81990cc931d70c39c489b0ef35256538a14dfb5515944676d5a99"
+   },
+   "legacy": {
+    "bytes": 46407744,
+    "sha256": "4c6aea45d0e81990cc931d70c39c489b0ef35256538a14dfb5515944676d5a99"
+   },
+   "hook": {
+    "bytes": 50602048,
+    "sha256": "06f2af5e38c53fa835fc4f5a5cfe4bc9da9f8a8c0fb91b604c8e4d072c35092f"
+   }
+  }
+ },
+ "quartus_run": {
+  "id": 36351443421,
+  "url": "https://github.com/strygo/jtcores/actions/runs/36351443421",
+  "status": "completed",
+  "workflow_conclusion": "failure",
+  "compile_and_timing": "success_both_profiles",
+  "packaging": "recovered_original_artifacts_after_naming_permission_failure",
+  "record": "quartus_build.json",
+  "hardware_test_kit_ready": true
+ },
+ "hardware_validated": false,
+ "complete_hsfa_fit_proven": false,
+ "hardware_smoke": {
+  "date": "2026-09-27",
+  "reporter": "Steve",
+  "evidence_type": "user_report",
+  "report": "all of them seemed fine. I played through the title screens into a fight",
+  "status": "pass_reported_startup_fight_reset_memory_check_and_MRA_reload",
+  "kit_sha256": "64cdaf7fd7730b94b5e9ad3d4adb83395b3d36a1456f63933f35a68599cdff55",
+  "kit_identity_basis": "The kit supplied in this task; on-device hashes and core identities were not independently captured.",
+  "build_run_id": 36351443421,
+  "rbf_sha256": {
+   "baseline": "f64478d44c8007450e0ac3afd39291b12fd5b64dd8afe7fdb748cd8390f7d69e",
+   "program": "a816ca4e2f77f80bd1542de98e187e6fcafba03391e4b6ed31d714618f1c6ef0"
+  },
+  "controls": {
+   "baseline": {
+    "title_screens_reached": true,
+    "fight_entered": true,
+    "obvious_issues_reported": false,
+    "osd_reset": "pass_reported",
+    "service_memory_check": "all_ok_reported"
+   },
+   "legacy": {
+    "title_screens_reached": true,
+    "fight_entered": true,
+    "obvious_issues_reported": false,
+    "osd_reset": "pass_reported",
+    "service_memory_check": "all_ok_reported"
+   },
+   "enabled": {
+    "title_screens_reached": true,
+    "fight_entered": true,
+    "obvious_issues_reported": false,
+    "osd_reset": "pass_reported",
+    "service_memory_check": "all_ok_reported"
+   },
+   "hook": {
+    "title_screens_reached": true,
+    "fight_entered": true,
+    "obvious_issues_reported": false,
+    "osd_reset": "pass_reported",
+    "service_memory_check": "all_ok_reported"
+   }
+  },
+  "extension_checks": {
+   "status": "pass_inferred_from_hook_game_start",
+   "basis": "The supplied hook halts before the original game entry if its extension call/return or boundary comparisons fail."
+  },
+  "sdram_capacity_mib": null,
+  "mister_version": null,
+  "audio_explicitly_confirmed": null,
+  "outstanding": [
+   "SDRAM module/capacity and MiSTer version identification",
+   "Explicit native-audio confirmation",
+   "Sustained gameplay and broader compatibility testing",
+   "If required, a dedicated on-device re-download test without FPGA reconfiguration; ordinary MRA switching does not cover this case"
+  ],
+  "scope": "User-reported startup into a fight, OSD reset and service memory checks for all four controls, plus normal MRA reloading. Basic hardware checks passed; no claim of a completed game, exhaustive memory coverage or full hardware acceptance.",
+  "follow_up_reports": [
+   {
+    "date": "2026-09-27",
+    "evidence_type": "user_report",
+    "reporter": "Steve",
+    "report": "1. Reset worked for all of them\n2. This seemed to work. but doesn't reloading a new game reset the core?\n3. all ok",
+    "interpretation": "OSD reset passed for all four controls; the requested game-switching sequence seemed to work; all four service-menu memory checks were reported OK."
+   }
+  ],
+  "osd_reset_scope": "Game reset within the loaded FPGA core. The hook booting again supports retained extension selection and repeated extension execution after reset.",
+  "memory_check_scope": "Original SFA3 service-menu memory check; the user reported all OK. No per-ROM result capture and no claim of exhaustive coverage of the added program window.",
+  "switching": {
+   "status": "pass_reported",
+   "requested_sequence": [
+    "hook",
+    "legacy",
+    "ordinary_CPS2_game"
+   ],
+   "scope": "Normal MRA selection resets and reloads the FPGA bitstream, even for MRAs sharing an RBF. This is a reload/launch sanity check.",
+   "retained_core_redownload_clear_validated_on_hardware": false,
+   "source_urls": [
+    "https://github.com/MiSTer-devel/Main_MiSTer/blob/master/support/arcade/mra_loader.cpp",
+    "https://github.com/MiSTer-devel/Main_MiSTer/blob/master/fpga_io.cpp"
+   ],
+   "source_observation": "xml_load calls fpga_load_rbf, which asserts fpga_core_reset and calls socfpga_load; reviewed 2026-09-27. The user's installed MiSTer version is not recorded."
+  }
+ },
+ "hardware_validation_scope": "The requested basic hardware checks passed by user report; complete coverage and sustained hardware acceptance remain pending. See hardware_smoke.",
+ "basic_hardware_checks": "pass_user_reported",
+ "patch_series_note": "hardware_smoke below was observed on the 2026-09-27 build of patch 0001 alone; the key-range fix (0002) is RTL-verified here and awaits its own FPGA build and MiSTer controls (vsav2 hook2 must fail on the 0001 RBF and pass on the 0002 RBF)",
+ "vsav2_controls": {
+  "schema_version": 2,
+  "machine": "vsav2",
+  "inputs": {
+   "vsav2.key": {
+    "bytes": 20,
+    "sha256": "fbebcba2ad83d0b1df76eadd4eb38a3ad66ac20c9aaea21ab306544ccc7cfda6",
+    "crc32": "289028ce"
+   },
+   "vs2j.03": {
+    "bytes": 524288,
+    "sha256": "d4af6d05b69fe1d5ad4abc713b418329b0a2c44a62524c888c0820d00945a369",
+    "crc32": "89fd86b4"
+   },
+   "vs2j.04": {
+    "bytes": 524288,
+    "sha256": "9e433561696cf187b8630f45ca7d5bb12a61a495ee9556f2a91e05ba08e9dbde",
+    "crc32": "107c091b"
+   },
+   "vs2j.05": {
+    "bytes": 524288,
+    "sha256": "15a31774fec9426f927e4129338c88164fd39617824e9899d2e2d77b9f196d12",
+    "crc32": "61979638"
+   },
+   "vs2j.06": {
+    "bytes": 524288,
+    "sha256": "86e491a3cd8b3ea535abce569d7850bdc3a50e6e1043b90d5b0b6bd42b9caed9",
+    "crc32": "f37c5bc2"
+   },
+   "vs2j.07": {
+    "bytes": 524288,
+    "sha256": "9cd791ed27cd29f1490171340c2bdb89d7c5f381ac09d02e26e44d860fe312d0",
+    "crc32": "8f885809"
+   },
+   "vs2j.08": {
+    "bytes": 524288,
+    "sha256": "74c845c2d978441611fc6d8c382d06f13a5e1d3c2ca7a4b3ae1227aada3be1a8",
+    "crc32": "2018c120"
+   },
+   "vs2j.09": {
+    "bytes": 524288,
+    "sha256": "3b385c35bb68659e2561d05ce4323cd32c865811fec6d6cc7d63c3632d34fcc6",
+    "crc32": "fac3c217"
+   },
+   "vs2j.10": {
+    "bytes": 524288,
+    "sha256": "0ec88cb3d1a2329b4fbc44d0fc703170f96396e1c6c6fc50b9dfd5109f2bda58",
+    "crc32": "eb490213"
+   },
+   "vs2.01": {
+    "bytes": 131072,
+    "sha256": "27081d58de50f3905988d2521d1448776c20bd25d357c6be4a33e9e21f2c2bed",
+    "crc32": "35190139"
+   },
+   "vs2.02": {
+    "bytes": 131072,
+    "sha256": "8537c742042603301783e72634d0e3ee92fdf87ef86c4a3faa3405f8d11463cc",
+    "crc32": "c32dba09"
+   },
+   "vs2.11m": {
+    "bytes": 4194304,
+    "sha256": "65697c143e06b4cd3bf8559199a9d7e4ec0baa30e1fd719d2a2bc3797fd83b59",
+    "crc32": "d67e47b7"
+   },
+   "vs2.12m": {
+    "bytes": 4194304,
+    "sha256": "63a4f7b14e37e3ecd33e2463587aa511d44d51fffc526efb0d11603e6bec36e2",
+    "crc32": "6d020a14"
+   },
+   "vs2.13m": {
+    "bytes": 4194304,
+    "sha256": "9ce04df3d39eb33c8fd05f2119006df5542c6104612541ec6810c3d161cc07fe",
+    "crc32": "5c852f52"
+   },
+   "vs2.15m": {
+    "bytes": 4194304,
+    "sha256": "c8a4531e4835d9e381a99d204090cd418753cbe610f7050b25ab7d322e6bbb86",
+    "crc32": "a20f58af"
+   },
+   "vs2.17m": {
+    "bytes": 4194304,
+    "sha256": "e6fae88f5bfd52c0d3ef341b77704ad27f920bec5f35e12aaaf5f2b160ea3178",
+    "crc32": "39db59ad"
+   },
+   "vs2.19m": {
+    "bytes": 4194304,
+    "sha256": "277a26797d2507875d00b21158fc3edd7d03557fea045a7e86950d421ffd433c",
+    "crc32": "00c763a7"
+   },
+   "vs2.14m": {
+    "bytes": 4194304,
+    "sha256": "347d82db84ec3b17a46ae5a3df429bb9c63c29cd17801ff16f7fc557b08d3802",
+    "crc32": "cd09bd63"
+   },
+   "vs2.16m": {
+    "bytes": 4194304,
+    "sha256": "8e9746a570e2522b4ce89c4019a9d816f7c59c3e6eefe2a28c8dda52c56538f1",
+    "crc32": "e0182c15"
+   },
+   "vs2.18m": {
+    "bytes": 4194304,
+    "sha256": "220f33b55e4978a8d84c9d6fbf6a5b8aba2d7412b3b9b367f8191e9b29cacac2",
+    "crc32": "778dc4f6"
+   },
+   "vs2.20m": {
+    "bytes": 4194304,
+    "sha256": "4030a7de364d0da1d9e2036b51ec477ae367dc3c19935ea28515521d82e57451",
+    "crc32": "605d9d1d"
+   },
+   "dl-1425.bin": {
+    "bytes": 24576,
+    "sha256": "524a25bcd153be24594d37c0dbd334fe4f384f77da73c2058dc60fc1f581cf18",
+    "crc32": "d6cf5ef5"
+   }
+  },
+  "original_reset_pc": 2342,
+  "initial_stack_pointer": 16744448,
+  "original_entry_opcode": 13308,
+  "key_encrypted_words": [
+   0,
+   524288
+  ],
+  "hooks": {
+   "hook": {
+    "original_program_bytes_changed": 4,
+    "patch_offsets": [
+     "0x44"
+    ],
+    "cipher_round_trip": true
+   },
+   "hook2": {
+    "original_program_bytes_changed": 16,
+    "patch_offsets": [
+     "0x44",
+     "0x3fb140"
+    ],
+    "cipher_round_trip": true
+   }
+  },
+  "hook_programs": {
+   "hook": {
+    "hex": "hook-program.hex",
+    "in_window": false
+   },
+   "hook2": {
+    "hex": "hook2-program.hex",
+    "in_window": true,
+    "window_hook": 4174080,
+    "window_code_bytes": 12
+   }
+  },
+  "hook_code_bytes": 590,
+  "window_code_bytes": 12,
+  "extension_sha256": "ea5adfeb7ae9e5e9f5ab5966a6a5329eec2e0f476afe1886f5a908b9b387e99c",
+  "addon_sha256": "4ed9750562416741d0d6115adc6a2804adb7d1bd789e7c8ccf36f46b1d98fe1f",
+  "mra_sha256": {
+   "VSAV2 PRG8 baseline.mra": "8c13b9848954a0fbaad1aa98c5e3d19998ca2525b041ba2ef75f075c4dc29255",
+   "VSAV2 PRG8 legacy.mra": "7abc5ad56b494a3b0d4c30e3c0375fac851662d414f18f40ad005f14501eaf63",
+   "VSAV2 PRG8 hook.mra": "b4363a9dc4e50ba2172f34428cd42d953cce46553dc6003729dd806496173c31",
+   "VSAV2 PRG8 hook2.mra": "ec3739c3712c1fec45c1e6eb19b8df11ffbc27a93c1ec0553c32a9d4ae064892"
+  },
+  "full_game_boot_validated": false,
+  "hardware_validated": false,
+  "assembled_images": {
+   "baseline": {
+    "bytes": 46407744,
+    "sha256": "a8aa95c062cee1c9ffe0f33f3e73684df922f39e6b74175eb645aa1e15b2bd44"
+   },
+   "legacy": {
+    "bytes": 46407744,
+    "sha256": "a8aa95c062cee1c9ffe0f33f3e73684df922f39e6b74175eb645aa1e15b2bd44"
+   },
+   "hook": {
+    "bytes": 50602048,
+    "sha256": "06f32680087e5ec633ebf8a047f18e2f64e337a285fe0f85cf4bfbd5ca7bba49"
+   },
+   "hook2": {
+    "bytes": 50602048,
+    "sha256": "131865f23ac377ed14aab84a2597d390c554ec00b8bbbab101e9a26da4d9e13d"
+   }
+  }
+ }
 }

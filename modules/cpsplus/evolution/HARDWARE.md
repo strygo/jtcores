@@ -26,6 +26,16 @@ rather than assuming a ROM-test warning is harmless. The hook's cipher round
 trip passes, but full-game ROM-test acceptance has not been established.
 The hook deliberately stops if an extension boundary check fails.
 
+For the `vsav2` set (Vampire Savior 2, Japan 970913) the kit carries the
+same four controls plus **hook2**: its reset vector points at plaintext code
+inside the original 4 MiB window above the key's 1 MiB encrypted bound. With
+the 2026-09-27 prototype RBF (patch 0001 only) hook2 must fail to start,
+because that core decrypts every page; with the patch-0002 RBF all five
+vsav2 controls must boot identically. Run vsav2 in the order baseline,
+legacy, enabled, hook, hook2 and record the same observations as for SFA3.
+A hook2 that boots on the old RBF, or fails on the new one, is a finding to
+report, not to explain away.
+
 Then switch from **hook** to **legacy**, and from the prototype to a normal
 stock CPS-2 MRA. Check that the ordinary game boots with its usual graphics,
 sound and controls. Record the SDRAM module, MiSTer version, displayed core

@@ -38,6 +38,17 @@ original fetches keep their opcode/data distinction. Extension writes do
 not select ROM. Larger graphics, sample mapping, music-control registers,
 68020 and widescreen are subsequent work, not implemented by this patch.
 
+## Patch series
+
+| Patch | Change | Why |
+|---|---|---|
+| `0001-program-window.patch` | The `CPS2_PRG8` window described above | Program capacity |
+| `0002-decrypt-range.patch` | `jtcps2_dec_ctrl.v` compares the 16 KiB page against `~range[9:0]` instead of `range[9:0]` | The CPS-2 key carries an encrypted address range; MAME (`cps2crypt.cpp`) decrypts opcode fetches only through page `~field` and fetches plaintext above it. The stock core compared against the raw field (`0x3c0` for vsav2/vhunt2/vsavj/sfa3, `0x200` for ssf2t), which is true for every page of the 4 MiB window, so it decrypted everything and garbled any code above the 1 MiB bound. This was the "MiSTer 1 MiB code limit". Legacy-safe: no shipped game fetches opcodes above its own bound. MAME's inclusive word convention still decrypts the single word at the bound; keep code away from it. |
+
+`prepare.py` applies the series in name order and verifies the cache against
+the cumulative diff derived in a throwaway worktree; a patch is immutable once
+a build has been recorded against it.
+
 ## Rebuilding and acceptance
 
 From the Capcom repository root:
@@ -45,7 +56,8 @@ From the Capcom repository root:
 ```
 python3 cpsplus/evolution/run_gate.py
 python3 cpsplus/evolution/run_gate.py --work cpsplus/evolution/work/clean
-python3 cpsplus/evolution/run_gate.py --with-game-hook
+python3 cpsplus/evolution/run_gate.py --with-game-hook                  # sfa3 controls
+python3 cpsplus/evolution/run_gate.py --with-game-hook --machine vsav2  # vsav2 controls
 ```
 
 The command fetches the pinned core and its required submodules, verifies
@@ -55,6 +67,16 @@ Verilator tests. It requires Python 3, Git, a C++ compiler, make and
 Verilator; game controls also use Go to rebuild the pinned upstream image
 assembler. The default output directory is disposable; nothing in it is a
 source input. Existing source caches with unknown edits are rejected.
+
+Controls exist for two machines (`build_controls.py --machine`): `sfa3`
+(baseline, legacy, enabled, hook) and `vsav2` (the same four plus `hook2`).
+`hook2` patches the reset vector to `0x3fb100`, inside the original window
+in an all-FF stock cave above the 1 MiB key bound, where 12 bytes of
+plaintext code leave a witness in D7 and jump to a second entry of the
+extension hook that checks it. It boots only when the core honors the key
+range (patch 0002): on the 2026-09-27 prototype RBF and on stock jtcps2 it
+must fail, which is the intended differential. The Verilator hook test
+counts fetches from that cave (`+INWINDOW`).
 
 The optional game-hook gate discovers canonical `sfa3.zip` and `qsound.zip`
 through the repository ROM paths, `CAPCOM_ARCADE_ROM_PATH`, or `--rompath`.
@@ -141,11 +163,51 @@ reports, RBF digests and kit digest. GitHub artifacts expire after 30 days;
 The source branch is `codex/cps2-program-capacity` in `strygo/jtcores`.
 Its later documentation/test/workflow updates do not change the built RTL.
 
+On 2026-09-27 Steve reported that all four supplied controls seemed fine and
+that he played through the title screens into a fight. This records an initial
+real-MiSTer smoke pass for baseline, legacy, enabled and hook. Normal startup
+in the supplied hook implies its extension call/return and boundary checks
+completed before SFA3 began. Steve then reported that OSD reset worked for all
+four controls, all service-menu memory checks were OK, and the requested game
+switching seemed to work. The requested basic hardware checks therefore pass
+by user report. OSD reset exercises the game within the loaded FPGA core;
+the hook starting again supports retained extension selection after reset.
+
+Normal MRA selection reloads the FPGA bitstream, even for MRAs sharing an RBF:
+MiSTer's [xml_load](https://github.com/MiSTer-devel/Main_MiSTer/blob/master/support/arcade/mra_loader.cpp)
+calls [fpga_load_rbf](https://github.com/MiSTer-devel/Main_MiSTer/blob/master/fpga_io.cpp),
+which resets and reconfigures the FPGA. The switching result is therefore a
+reload/launch check; it does not validate clearing the extension marker on a
+new download into a retained FPGA configuration. That behavior has RTL test
+coverage, but no dedicated hardware observation. The stock service check also
+does not establish exhaustive coverage of the added program window.
+
+Hardware details, explicit audio confirmation and sustained compatibility
+are not yet recorded. Exact reports, the supplied-kit identity and remaining
+checks are in the `hardware_smoke` entry of [validation.json](validation.json);
+complete hardware acceptance remains open.
+
+## 2026-09-28: patch 0002 and the vsav2 controls
+
+From the existing verified cache (`run_gate.py --with-game-hook --machine
+vsav2`): loader, CPU runs 1/2, decode (262,272 cases), **key range (16,448
+cases: field `0x3c0` decrypts pages 0–0x3f only, field `0x200` the whole
+window, data and extension fetches untouched)**, write rejection, upstream
+MRA assembly of the five vsav2 controls (baseline/legacy 46,407,744 B,
+enabled/hook/hook2 50,602,048 B), the vsav2 `hook` (4 program bytes changed)
+and `hook2` (16 bytes: vector + 12 code bytes at `0x3fb100`) RTL hook
+tests, and the sfa3 `hook` with the two-entry extension code (590 B). The
+FPGA build for this series is a separate record; until it passes and Steve
+runs the controls, the key-range fix is RTL-verified only.
+
 ## Remaining acceptance
 
-- Real MiSTer validation of the fitted cores and SDRAM access.
-- Full-game execution of the stock controls and extension hook, including
-  graphics, native audio, service ROM tests, resets and game switching.
+- Record the tested SDRAM module/capacity and MiSTer version.
+- Explicit native-audio confirmation for the stock controls and extension hook.
+- Sustained gameplay and broader hardware/compatibility coverage beyond the
+  reported startup, reset, service-check and MRA-reload passes.
+- If retained-core re-download behavior is required on hardware, use a
+  dedicated test that does not reconfigure the FPGA between images.
 - Complete HSFA code/data, RAM and asset budgets before substantial graphics
   and sample expansion work; those proposed capacities remain provisional.
 

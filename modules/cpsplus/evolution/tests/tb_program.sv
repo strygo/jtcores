@@ -33,6 +33,9 @@ reg sweep_enable=0;
 reg [23:1] sweep_address=0;
 reg [2:0] sweep_fc=0;
 integer decode_checks=0;
+integer bound_page='h3ff, window_reads=0;
+reg inwindow_mode=0;
+string program_file;
 
 task check_decode(input integer byte_address);
 reg expected_rom, expected_ext;
@@ -56,8 +59,9 @@ begin
         $fatal(1,"original device decode changed at %h",byte_address);
     // Force the encrypted result to a distinct sentinel, with encryption
     // enabled over the entire address space. Only extension fetches bypass it.
-    if(main.rom_dec !== ((sweep_fc[1:0]==2 && !expected_ext) ? 16'h1234 : 16'habcd))
-        $fatal(1,"opcode/data selection failed at %h fc=%h",byte_address,sweep_fc);
+    // Opcode fetches decrypt only through the key's last encrypted page.
+    if(main.rom_dec !== ((sweep_fc[1:0]==2 && !expected_ext && (byte_address>>14)<=bound_page) ? 16'h1234 : 16'habcd))
+        $fatal(1,"opcode/data selection failed at %h fc=%h bound=%h",byte_address,sweep_fc,bound_page);
     decode_checks=decode_checks+1;
 end
 endtask
@@ -128,6 +132,7 @@ always @(negedge clk) begin
                 if(beat==3) begin
                     reads=reads+1;
                     if(tx_addr>=23'h400000) ext_reads=ext_reads+1;
+                    if(tx_addr>=23'h1fd880 && tx_addr<23'h200000) window_reads=window_reads+1; // bytes 3fb100..3fffff
                     tx=3;
                 end else beat=beat+1;
             end
@@ -154,7 +159,9 @@ initial begin
     hook_mode=$test$plusargs("HOOK");
     // Sparse ROM image was constructed through the tested download mapping.
     if(hook_mode) begin
-        $readmemh("hook-program.hex",mem);
+        if(!$value$plusargs("PROGRAM=%s",program_file)) program_file="hook-program.hex";
+        inwindow_mode=$test$plusargs("INWINDOW");
+        $readmemh(program_file,mem);
         $readmemh("key.hex",rom_key);
         if(!$value$plusargs("ENTRY=%h",reset_entry) || !$value$plusargs("OPCODE=%h",entry_opcode))
             $fatal(1,"missing verified original entry identity");
@@ -173,7 +180,11 @@ initial begin
     if(hook_mode) begin
         wait(!hold_rst && main.A==reset_entry[23:1] && main.FC==6 && rom_ok && main.rom_ok2 && main.rom_dec==entry_opcode[15:0]);
         if(ext_reads<4) $fatal(1,"game hook never traversed extension");
-        $display("PASS SFA3 hook: encrypted reset vector executes plaintext extension and returns to original encrypted entry %h; full-game boot remains untested",reset_entry);
+        if(inwindow_mode && window_reads<1) $fatal(1,"in-window hook never fetched above the key bound");
+        if(inwindow_mode)
+            $display("PASS game hook: encrypted reset vector executes plaintext code above the key bound inside the original window, then the extension, and returns to original encrypted entry %h; full-game boot remains untested",reset_entry);
+        else
+            $display("PASS game hook: encrypted reset vector executes plaintext extension and returns to original encrypted entry %h; full-game boot remains untested",reset_entry);
         $finish;
     end
     wait(mem['h300000]===16'h600d);
@@ -199,7 +210,7 @@ initial begin
     force main.u_dtack.bus_busy=0;
     force main.prog_ext=sweep_enable;
     force main.u_decrypt.dec_en=1;
-    force main.u_decrypt.addr_rng=16'h03ff;
+    force main.u_decrypt.addr_rng=16'h0000; // field 0 = bound page 0x3ff: encryption over the entire space
     force main.u_decrypt.dec_data=16'h1234;
     force main.u_decrypt.din=16'habcd;
     for(integer mode=0;mode<2;mode=mode+1) begin
@@ -218,6 +229,29 @@ initial begin
         end
     end
     $display("PASS decode: %0d cases, legacy/extension selection, device isolation and opcode/data views",decode_checks);
+    // The key's encrypted address range: pages 0..~field. vsav2/vhunt2/vsavj/sfa3
+    // carry field 0x3c0 (first 1 MiB); an ssf2t-class key carries 0x200 (whole window).
+    begin : key_range
+        integer range_start;
+        range_start=decode_checks;
+        for(integer variant=0;variant<2;variant=variant+1) begin
+            if(variant==0) begin force main.u_decrypt.addr_rng=16'h03c0; bound_page='h3f; end
+            else begin force main.u_decrypt.addr_rng=16'h0200; bound_page='h1ff; end
+            for(integer mode=0;mode<2;mode=mode+1) begin
+                sweep_enable=mode[0];
+                for(integer fc=0;fc<8;fc=fc+1) begin
+                    sweep_fc=fc[2:0];
+                    for(integer address=0;address<'h400000;address=address+'h4000) begin
+                        check_decode(address);
+                        check_decode(address+'h3ffe);
+                    end
+                    check_decode('ha00000); check_decode('hdffffe);
+                end
+            end
+        end
+        $display("PASS key range: %0d cases, opcode fetches decrypted only through page ~field (1 MiB and whole-window keys), data and extension untouched",decode_checks-range_start);
+        force main.u_decrypt.addr_rng=16'h0000; bound_page='h3ff; sweep_fc=6;
+    end
     force main.RnW=0;
     sweep_enable=1; sweep_address=23'h500000;
     repeat(6) @(negedge clk);
