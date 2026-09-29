@@ -59,7 +59,9 @@ the library. The `slice` MRA must fail to boot on `jtcps2-prg8-program.rbf`
 (marker `03` is rejected there).
 
 The `jtcps2-prg8-objext.rbf` core is the first to drive the 128 MiB module
-as two chips (patch 0004): `SDRAM_nCS` low selects U1, high selects U2
+as two chips (patch 0004; the staged copy is run 36621029996's, packaged with
+one reviewed finding: `SDRAM_nCS` was an unconstrained output, and patch 0005
+constrains it without changing any logic): `SDRAM_nCS` low selects U1, high selects U2
 through the module's inverter, and every refresh slot refreshes both. Only
 the real module can show whether U2 keeps up with the shared bus at 96 MHz:
 run the `slice` control, then a long session of `hook` (all its data lives

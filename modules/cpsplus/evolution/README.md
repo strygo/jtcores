@@ -46,6 +46,7 @@ not select ROM. Larger graphics, sample mapping, music-control registers,
 | `0002-decrypt-range.patch` | `jtcps2_dec_ctrl.v` compares the 16 KiB page against `~range[9:0]` instead of `range[9:0]` | The CPS-2 key carries an encrypted address range; MAME (`cps2crypt.cpp`) decrypts opcode fetches only through page `~field` and fetches plaintext above it. The stock core compared against the raw field (`0x3c0` for vsav2/vhunt2/vsavj/sfa3, `0x200` for ssf2t), which is true for every page of the 4 MiB window, so it decrypted everything and garbled any code above the 1 MiB bound. This was the "MiSTer 1 MiB code limit". Legacy-safe: no shipped game fetches opcodes above its own bound. MAME's inclusive word convention still decrypts the single word at the bound; keep code away from it. |
 | `0003-object-bank-bit.patch` | `CPS2_OBJEXT` (requires `CPS2_PRG8` and `JTFRAME_SDRAM_XL`): one extension bit per object entry, set by writes through the CPU A14 alias of the object page and cleared by the normal window, latched with the list and used as tile code bit 18; an 8 MiB high slice of tile codes at SDRAM bank 2 bytes 16–24 MiB; header capability mask `03` | The graphics half of [OBJ_BANK_BIT_PROPOSAL.md](OBJ_BANK_BIT_PROPOSAL.md) as the HBMAME `cps2evog` model validated it, sized to the 8 MiB slice VS2A needs (`backports/vamparrange/EVOLVED_CORE_PLAN.md`, "Hardware path for Phase 2 without E2"). Details below. |
 | `0004-sdram-xl.patch` | `modules/jtframe/hdl/sdram/jtframe_sdram64{,_bank,_latch,_rfsh}.v`, all of it under `` `ifdef JTFRAME_SDRAM_XL ``: with `AW = 24` word address bit 23 selects one of the two 64 MiB chips of the MiSTer 128 MiB module, every command carries its chip on `SDRAM_nCS`, the open-row record and match include the chip, the programmer precharges each chip before its first activate, and every refresh slot precharges and refreshes both chips | The 128 MiB module path that 0003 named as its prerequisite (`jtframe_sdram64_bank.v` split addresses only for 32/64 MiB and the top level drove one chip select). Details in "128 MiB SDRAM controller" below; the 32/64 MiB configurations preprocess byte-identically to upstream. |
+| `0005-sdram-ncs-constraint.patch` | `modules/jtframe/target/mister/syn/sdram_clk96.sdc`, 15 appended lines: `SDRAM_nCS` gets a `set_output_delay` pair against the `SDRAM_CLK` generated clock with the AS4C32M16SB input setup and hold times (max 1.5 ns, min -0.8 ns); no logic changes | Since 0004 the pin toggles per command, and the `objext` build of run 36621029996 reported it as a new unconstrained output (the only coverage difference from the baseline). The constraint puts the path under analysis, restores coverage parity, and makes the reported setup slack the U2 inverter budget. Details in "Chip-select timing constraint" below. |
 
 `prepare.py` applies the series in name order and verifies the cache against
 the cumulative diff derived in a throwaway worktree; a cache verified against
@@ -338,8 +339,10 @@ Tests (`run_gate.py`, `tests/sdram_chip.sv`, `tests/tb_sdram.sv`,
 
 Not verifiable here, only on the module: signal integrity with two loads
 on every shared line at 96 MHz and the inverter's delay on U2's CS# against
-the command setup window (the SDC constrains `SDRAM_nCS` like the other
-command pins; U2 sees it later by the LVC1G04 propagation delay); read data
+the command setup window (upstream's SDC constrains none of the command
+pins; run 36621029996 reported `SDRAM_nCS` as a new unconstrained output
+once it toggled, and patch 0005 constrains it; U2 sees it later by the
+LVC1G04 propagation delay); read data
 timing from U2 with the shifted SDRAM clock; the objext Quartus build's
 timing closure; data retention with real leakage. The one-clock LOAD MODE
 with A = 0 that the FPGA's cleared command register shows at power-up
@@ -347,6 +350,54 @@ with A = 0 that the FPGA's cleared command register shows at power-up
 on a 64 MiB module reads a floating bus for every chip-1 address; the
 loader cannot detect the module, so the slice controls must only be run on
 the 128 MiB module.
+
+## Chip-select timing constraint (patch 0005)
+
+What the fitter sees (MEASURED in the run 36621029996 `objext` reports): the
+controller launches every command pin from the 96 MHz PLL output 4
+(`clk96`, 0 ps) into an IO output register (`sys.tcl` sets
+`FAST_OUTPUT_REGISTER ON -to SDRAM_*`; the fit report lists `SDRAM_nCS`,
+`SDRAM_nRAS`, `SDRAM_nWE` and `SDRAM_A[*]` alike with "Output Register: yes",
+3.3-V LVTTL, 16 mA, slew rate 1). The pin clock is PLL output 5 (`clk96sh`,
+−5034 ps, so the SDRAM samples 5.383 ns after the launch edge); jtframe's
+`sdram_clk96.sdc` declares it as `SDRAM_CLK`, a 180° generated clock
+(5.208 ns, 0.175 ns pessimistic). Upstream constrains no SDRAM output: every
+command pin is an "unconstrained output" in the baseline, and `SDRAM_nCS` was
+absent from that list only because a 64 MiB core holds it at a constant.
+Once 0004 toggled it, the collector's coverage comparison flagged exactly that
+one port (+1 port, +1 path, nothing else); the kit was packaged with the review
+recorded (`collect_build.py --accept-coverage-change`, see `coverage_review`
+in the build record).
+
+The patch appends two lines to that SDC:
+
+```
+set_output_delay -clock [get_clocks {SDRAM_CLK}] -max  1.5 [get_ports {SDRAM_nCS}]
+set_output_delay -clock [get_clocks {SDRAM_CLK}] -min -0.8 [get_ports {SDRAM_nCS}]
+```
+
+The figures are the AS4C32M16SB input setup and hold times (datasheet Rev 1.4,
+June 2024, table "AC Characteristics": `tIS` 1.5 ns, `tIH` 0.8 ns for the -6
+and -7 grades). The setup requirement is therefore `tco + 1.5 ≤ 5.208 ns` at
+the pin, and the slack Quartus reports on this path is the whole budget for the
+module's U3 inverter in front of U2's CS# (SN74LVC1G04, SCES214AF: 0.7–3.3 ns
+at 15 pF, 1.0–4.2 ns at 30–50 pF, 3.3 V ± 0.3 V); the inverter only adds to
+U2's hold margin. Because `SDRAM_nCS` shares the launch path of every other
+command pin, its slack also stands for theirs. The other pins stay as upstream
+leaves them: constraining them too would be an improvement, but it would make
+the profile's coverage differ from the baseline again, and that is a separate
+decision. On a 64 MiB build the pin is constant and the two lines constrain no
+path, so the `program` profile is unaffected.
+
+What the next build answers: `collect_build.py` records the `SDRAM_CLK`
+setup row of the STA summary per profile as `sdram_ncs_output_setup_slack_ns`
+(the only path latched by that clock). A nonnegative value is the inverter
+budget in ns; a negative value fails the build's timing, the collector refuses
+the kit, and the finding goes to Steve as-is rather than being relaxed. The
+gate `sdc` (`run_gate.py`) checks the text locally, since Quartus only runs in
+CI: the pair exists, names a clock the file creates and a port `sys_top.v`
+declares, carries the datasheet figures, and four mutations (undeclared port,
+uncreated clock, another figure, missing hold line) are each rejected.
 
 ## Rebuilding and acceptance
 
@@ -570,16 +621,29 @@ bank 2, 832 from bank 3, chip 1 read 352 bursts and was never written,
 55,436 refreshes per chip), and the vsav2 controls (upstream MRA assembly,
 `hook`, `hook2`, `hook3`, `slice` RTL hooks) as before. The controller
 runs at 100 MHz in the testbenches, the faster of the two periods jtframe's
-own `sdram_bank64` tests use. No FPGA build of the `objext` profile has
-been dispatched; the profile lints with 0004 applied and `collect_build.py`
-already verifies the jtframe files through `patched_files()`.
+own `sdram_bank64` tests use.
+
+FPGA run 36621029996 (commit `aa2ba8a`, patches 0001–0004) then built all
+three profiles: baseline worst setup slack +0.044 ns (RBF `f64478d4…`,
+unchanged), `program` +0.086 ns (`11978c83…`), `objext` +0.205 ns
+(`6fe517aa…`, 3,406,996 bytes; 19,724 ALMs, 237 M10K blocks). `collect_build.py`
+first refused the `objext` profile: its timing-constraint coverage differed
+from the baseline by exactly one port, `SDRAM_nCS`, newly an unconstrained
+output (+1 port, +1 path; SDC files, clocks, critical warnings and every other
+row equal). Reviewed and packaged with the finding on record
+(`--accept-coverage-change objext:SDRAM_nCS:…`, kit `48cb3eac…`, record
+`quartus_build.json`, `coverage_review`); the `objext` RBF went into the
+round-3 staging folder for the slice diagnostic and the VS2A Phase 2 slice
+image. Patch 0005 (next section) is the constraint that finding asked for.
 
 ## Remaining acceptance
 
-- Dispatch the `objext` Quartus build with 0004 (`export_core.py`, then the
-  workflow), collect it, and run the vsav2 `slice` and `hook` controls on
-  the 128 MiB module (HARDWARE.md): the two-chip timing, the inverter delay
-  on U2's CS# and U2's refresh are hardware-only checks.
+- Run the vsav2 `slice` and `hook` controls on the 128 MiB module with the
+  run 36621029996 `objext` core (HARDWARE.md): the two-chip timing, the
+  inverter delay on U2's CS# and U2's refresh are hardware-only checks.
+- Collect the patch 0005 build: coverage parity with the baseline is expected
+  to return without an override, and the recorded `SDRAM_nCS` setup slack is
+  the U2 inverter budget to compare with the LVC1G04 figures.
 
 - Record the tested SDRAM module/capacity and MiSTer version.
 - Explicit native-audio confirmation for the stock controls and extension hook.

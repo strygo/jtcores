@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "date": "2026-09-29",
-  "status": "RTL_gates_pass_with_patch_0004_128MiB_sdram_controller_two_chip_model_fpga_build_pending_hardware_smoke_recorded_for_patch_0001_only",
+  "status": "RTL_gates_pass_with_patch_0005_chip_select_constraint_fpga_build_36621029996_packaged_for_patches_0001_0004_with_reviewed_SDRAM_nCS_coverage_finding_hardware_smoke_recorded_for_patch_0001_only",
   "reproduce": [
     "python3 cpsplus/evolution/run_gate.py --with-game-hook --machine vsav2",
     "python3 cpsplus/evolution/run_gate.py --with-game-hook"
@@ -14,7 +14,8 @@
       "0001-program-window.patch": "4e1dacaa1c097002c1a1596f033aca9bd92a4bb44d440bcbd94dccb9adaa90b5",
       "0002-decrypt-range.patch": "5113187aae5dddd71b3a96c0ab06774a2e78ec7c4e6d85101e4603b63833913c",
       "0003-object-bank-bit.patch": "07a872f140976d505223fc2a6ee66e47bcacd22580216b3b33148f266c6c333e",
-      "0004-sdram-xl.patch": "6c031a19ac7e243f3fd950d395db6bbb1f286f46e8d892a303ff8a6e5f3b762f"
+      "0004-sdram-xl.patch": "6c031a19ac7e243f3fd950d395db6bbb1f286f46e8d892a303ff8a6e5f3b762f",
+      "0005-sdram-ncs-constraint.patch": "25c25cd5256c4f8c324993886d0a8e2078860b20b2b6543abf786aa69dfe39e0"
     },
     "verilator_version": "Verilator 5.050 2026-07-01 rev vUNKNOWN-built20260701",
     "profile_defines": [
@@ -24,8 +25,8 @@
       "-DJTFRAME_SDRAM_XL"
     ],
     "generator_sha256": {
-      "prepare.py": "b19515f61202a3c09202b2c1f1e77f748a63740ea4ab4d0a6fcf70e6e92fd611",
-      "run_gate.py": "01d6d0df48b74b9b7ec91628da95d5af80dcaaca3b8b14424ce328557fbba461",
+      "prepare.py": "5ebda5ae4f05db021785b4c9b1fdb9aabd6f0438bf397b95e6595a9ce22b7d30",
+      "run_gate.py": "c54b58a076110c3b16066ad01d082dd610ebdf620e400ba8fc4fe675c1945173",
       "build_controls.py": "8608e8184011d55d2093ff4227b520a7ce84898f3f8de32e8ed5b818e424a476",
       "tests/sdram_chip.sv": "412349c985ad6a98fa857672f287670043d68b9cecdfa68f4a25d094a7d64192",
       "tests/tb_loader.sv": "54834b216ab5a6897f0352ab0800f591c1d6771fddbc06ee6db436768bc8c288",
@@ -73,6 +74,9 @@
       ],
       "sdram_lint": [
         "PASS sdram lint: jtframe_sdram64 elaborates at AW=24 with JTFRAME_SDRAM_XL and at AW=23/22 without it (0 errors)"
+      ],
+      "sdc": [
+        "PASS sdc: SDRAM_nCS output delay pair against SDRAM_CLK (max 1.5 / min -0.8 ns, AS4C32M16SB tIS/tIH) names a created clock and a declared port; four mutations rejected"
       ],
       "sdram64": [
         "PASS sdram init: 64 MiB controller initialized chip 0 (2 refreshes); chip 1 behind the inverted CS decoded 0 commands",
@@ -388,7 +392,7 @@
   },
   "hardware_validation_scope": "The requested basic hardware checks passed by user report; complete coverage and sustained hardware acceptance remain pending. See hardware_smoke.",
   "basic_hardware_checks": "pass_user_reported",
-  "patch_series_note": "hardware_smoke below was observed on the 2026-09-27 build of patch 0001 alone; the key-range fix (0002) is RTL-, emulation- and fit-verified (fpga_build) and awaits MiSTer controls; the object extension slice (0003) is RTL-verified; the 128 MiB SDRAM controller (0004) is RTL-verified against a two-chip model of the MiSTer XS-DS module (sdram_xl below) and removes the jtframe prerequisite 0003 named; no FPGA build of the objext profile exists yet and nothing about 0003/0004 is hardware-verified",
+  "patch_series_note": "hardware_smoke below was observed on the 2026-09-27 build of patch 0001 alone; the key-range fix (0002) is RTL-, emulation- and fit-verified (fpga_build) and awaits MiSTer controls; the object extension slice (0003) is RTL-verified; the 128 MiB SDRAM controller (0004) is RTL-verified against a two-chip model of the MiSTer XS-DS module (sdram_xl below) and removes the jtframe prerequisite 0003 named; FPGA run 36621029996 (commit aa2ba8a, 0001-0004) built baseline/program/objext (fpga_build) and was packaged with one reviewed coverage finding (SDRAM_nCS newly an unconstrained output; sdc_constraint below); patch 0005 constrains that pin and awaits its own build; nothing about 0003/0004/0005 is hardware-verified",
   "vsav2_controls": {
     "schema_version": 2,
     "machine": "vsav2",
@@ -617,8 +621,8 @@
   "fpga_build": {
     "repository": "strygo/jtcores",
     "branch": "codex/cps2-program-capacity",
-    "commit": "5ed61011f65246a79e6974a26d7b7a07c2f183b0",
-    "run_id": 36515396738,
+    "commit": "aa2ba8a16ed39d28115dd5359e0f8be809378f4c",
+    "run_id": 36621029996,
     "workflow_conclusion": "success",
     "record": "cpsplus/evolution/quartus_build.json",
     "profiles": {
@@ -628,14 +632,40 @@
         "minimum_reported_slack_ns": 0.044
       },
       "program": {
-        "rbf_sha256": "71e4172e54e673cb06e49c9ba3c59b807fc9f23d0df4dddc8ee9ea7e64a4309f",
-        "rbf_bytes": 3452796,
+        "rbf_sha256": "11978c83de38735b0673362b9ec29d91162202021bad88679ee47eb76b0eb390",
+        "rbf_bytes": 3452800,
         "minimum_reported_slack_ns": 0.086
+      },
+      "objext": {
+        "rbf_sha256": "6fe517aa9d0bfd0ac110facda3f684a505d307b63689979aa53c70a96794fe70",
+        "rbf_bytes": 3406996,
+        "minimum_reported_slack_ns": 0.205
       }
     },
-    "kit_sha256": "78aae48a6f6df9ceea0cf75e13f247f504acf0d937f888191b19ea1bdce2d8b8",
-    "kit": "work/build-36515396738/cps2-prg8-hardware-test.zip (disposable; recreate with collect_build.py 36515396738 while the artifacts exist)",
-    "previous_build_record": "cpsplus/evolution/quartus_build_36351443421.json (patch 0001 only; its program RBF is the negative control for vsav2 hook2)",
+    "kit_sha256": "48cb3eac4765304d259a1ec560a42143943fd99197d486d333a30dd305761258",
+    "kit": "work/build-36621029996/cps2-prg8-hardware-test.zip (disposable; recreate with collect_build.py 36621029996 --accept-coverage-change objext:SDRAM_nCS:<reason> while the artifacts exist)",
+    "objext_fit": "19,724 ALMs (47%), 237 M10K blocks, worst reported setup slack +0.205 ns (fit/sta summaries in the record)",
+    "coverage_review": [
+      {
+        "profile": "objext",
+        "newly_unconstrained_ports": [
+          "SDRAM_nCS"
+        ],
+        "unconstrained_summary_deltas": {
+          "Unconstrained Output Port Paths": {
+            "setup": 1,
+            "hold": 1
+          },
+          "Unconstrained Output Ports": {
+            "setup": 1,
+            "hold": 1
+          }
+        },
+        "reason": "SDRAM_nCS newly toggles per SDRAM command to select the second chip of the 128 MiB module (patch 0004) and appears as an unconstrained output; jtframe SDC constrains none of the SDRAM command outputs, so it joins its peers, but U2 sees it through the board inverter, so an explicit SDC output constraint is queued as the next core patch"
+      }
+    ],
+    "timing_coverage_matches_baseline": false,
+    "previous_build_record": "cpsplus/evolution/quartus_build_36515396738.json (patches 0001-0002, two profiles); quartus_build_36351443421.json (patch 0001 only; its program RBF is the negative control for vsav2 hook2)",
     "hardware_validated": false
   },
   "object_extension": {
@@ -646,7 +676,7 @@
     "module_requirement": "128 MiB (24-bit SDRAM word addresses); a 64 MiB module cannot host the slice beside a 16 MiB sample library",
     "platform_prerequisite": "was: pinned jtframe split SDRAM addresses for AW<=23 and drove one chip select; patch 0004 completes the JTFRAME_SDRAM_XL path (see sdram_xl)",
     "ext_with_nonzero_bank_bits": "no SDRAM access, drawn transparent (reserved for the 64 MiB library)",
-    "fpga_profile": "objext: -d CPS2_PRG8 -d CPS2_OBJEXT -d JTFRAME_SDRAM_XL -u JTFRAME_SDRAM_LARGE (build_cores.yml); not built yet",
+    "fpga_profile": "objext: -d CPS2_PRG8 -d CPS2_OBJEXT -d JTFRAME_SDRAM_XL -u JTFRAME_SDRAM_LARGE (build_cores.yml); built in run 36621029996 (RBF 6fe517aa9d0bfd0a..., staged for hardware round 3)",
     "mutation": "PASS mutation: extension lane write enable forced off makes tb_obj fail: [98158840000] %Fatal: tb_obj.sv:127: Assertion failed in tb_obj.note_fetch: frame 19: unexpected tile fetch bank=2 word=08d140 -> ext=0 bank=00 code=2345",
     "slice_control": {
       "capability_marker": "43320103",
@@ -766,11 +796,31 @@
       "signal integrity with two loads on every shared line at 96 MHz",
       "the LVC1G04 delay on U2's CS# against the command setup window",
       "read data timing from U2 with the shifted SDRAM clock",
-      "objext profile Quartus timing closure (no build dispatched)",
       "data retention with real leakage",
-      "an XL core on a 64 MiB module reads a floating bus for chip-1 addresses; the loader cannot detect the module"
+      "an XL core on a 64 MiB module reads a floating bus for chip-1 addresses; the loader cannot detect the module",
+      "objext Quartus timing closed in run 36621029996 (+0.205 ns) with SDRAM_nCS unconstrained; patch 0005 puts that output under analysis (its slack = U2 inverter budget)"
     ],
-    "fpga_build": "none yet; objext profile (-d CPS2_PRG8 -d CPS2_OBJEXT -d JTFRAME_SDRAM_XL -u JTFRAME_SDRAM_LARGE) lints and is ready to dispatch after export_core.py publishes 0004",
+    "fpga_build": "run 36621029996 objext profile: fit 19,724 ALMs / 237 M10K, worst setup slack +0.205 ns, RBF 6fe517aa9d0bfd0ac110facda3f684a505d307b63689979aa53c70a96794fe70; timing coverage differed from the baseline only by SDRAM_nCS becoming an unconstrained output (reviewed; patch 0005)",
+    "hardware_validated": false
+  },
+  "sdc_constraint": {
+    "patch": "0005-sdram-ncs-constraint.patch",
+    "patch_sha256": "25c25cd5256c4f8c324993886d0a8e2078860b20b2b6543abf786aa69dfe39e0",
+    "file": "modules/jtframe/target/mister/syn/sdram_clk96.sdc (15 appended lines, no logic change)",
+    "constraint": {
+      "port": "SDRAM_nCS",
+      "clock": "SDRAM_CLK (generated, 180 deg of PLL output 4; pin driven by output 5 at -5034 ps = 5.383 ns after launch)",
+      "max_ns": 1.5,
+      "min_ns": -0.8
+    },
+    "sources": {
+      "tIS_tIH": "Alliance Memory AS4C32M16SB datasheet Rev 1.4 June 2024, AC Characteristics: tIS 1.5 ns, tIH 0.8 ns (-6 and -7)",
+      "inverter": "TI SN74LVC1G04 SCES214AF (rev. Oct 2025): tpd 0.7-3.3 ns at 15 pF, 1.0-4.2 ns at 30/50 pF, VCC 3.3 V +/- 0.3 V",
+      "launch_path": "run 36621029996 objext fit report: SDRAM_nCS/nRAS/nWE/A[*] all 'Output Register: yes', 3.3-V LVTTL 16 mA slew 1"
+    },
+    "why": "run 36621029996 reported SDRAM_nCS as the one newly unconstrained output once patch 0004 made it toggle; the constraint restores coverage parity with the baseline and reports the U2 inverter budget as slack",
+    "gate": "PASS sdc: SDRAM_nCS output delay pair against SDRAM_CLK (max 1.5 / min -0.8 ns, AS4C32M16SB tIS/tIH) names a created clock and a declared port; four mutations rejected",
+    "fpga_build": "pending: collect_build.py records sdram_ncs_output_setup_slack_ns per profile; a negative value fails timing and is a finding, not something to relax",
     "hardware_validated": false
   }
 }
