@@ -37,6 +37,9 @@ module jtcps2_obj(
     output             oram_clr,
     output             oram_cs,
     input      [15:0]  oram_data,
+`ifdef CPS2_OBJEXT
+    input              oram_ext,   // extension bit of the entry being copied
+`endif
 
     input              obank,
 
@@ -46,7 +49,11 @@ module jtcps2_obj(
     input      [ 8:0]  hdump,
 
     output     [19:0]  rom_addr,    // up to 1 MB
+`ifdef CPS2_OBJEXT
+    output     [ 2:0]  rom_bank,    // {extension bit, y[14:13]}
+`else
     output     [ 1:0]  rom_bank,
+`endif
     output             rom_half,    // selects which half to read
     input      [31:0]  rom_data,
     output             rom_cs,
@@ -58,7 +65,12 @@ module jtcps2_obj(
 wire [15:0] dr_code, dr_attr;
 wire [ 8:0] dr_hpos;
 wire [ 2:0] dr_prio, buf_prio;
+`ifdef CPS2_OBJEXT
+wire [ 2:0] dr_bank;
+wire        obj_ext;
+`else
 wire [ 1:0] dr_bank;
+`endif
 
 wire        dr_start, dr_idle;
 
@@ -102,6 +114,10 @@ jtcps2_obj_frame u_frame(
 );
 
 jtcps2_objram u_objram(
+`ifdef CPS2_OBJEXT
+    .ext_din    ( oram_ext      ),
+    .obj_ext    ( obj_ext       ),
+`endif
     .rst        ( rst           ),
     .clk_cpu    ( clk           ),  // use GFX as it is driven by u_frame
     .clk_gfx    ( clk           ),
@@ -133,6 +149,9 @@ jtcps2_objram u_objram(
 );
 
 jtcps2_obj_scan u_scan(
+`ifdef CPS2_OBJEXT
+    .table_ext  ( obj_ext       ),
+`endif
     .rst        ( rst           ),
     .clk        ( clk           ),
     .flip       ( flip          ),

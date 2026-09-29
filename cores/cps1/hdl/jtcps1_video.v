@@ -42,6 +42,9 @@ module jtcps1_video(
     output             oram_clr,
     output             oram_cs,
     input      [15:0]  oram_data,
+`ifdef CPS2_OBJEXT
+    input              oram_ext,
+`endif
     `endif
 
     // CPU interface
@@ -100,7 +103,11 @@ module jtcps1_video(
     input              rom1_ok,
 
     output     [19:0]  rom0_addr,
+`ifdef CPS2_OBJEXT
+    output     [ 2:0]  rom0_bank,
+`else
     output     [ 1:0]  rom0_bank,
+`endif
     output             rom0_half,    // selects which half to read
     input      [31:0]  rom0_data,
     output             rom0_cs,
@@ -519,6 +526,9 @@ assign scr3_pxl   = 11'h1ff;
     assign rom0_bank = 2'b10;
 `else
     jtcps2_obj u_obj(
+`ifdef CPS2_OBJEXT
+        .oram_ext   ( oram_ext      ),
+`endif
         .rst        ( rst           ),
         .clk        ( clk           ),
         .clk_cpu    ( clk_cpu       ),

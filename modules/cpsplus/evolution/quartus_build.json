@@ -1,42 +1,42 @@
 {
   "schema_version": 1,
-  "run_id": 36351443421,
-  "url": "https://github.com/strygo/jtcores/actions/runs/36351443421",
-  "build_revision": "1f3cc9c39a26ed42035767e2e905f7457b8cb653",
-  "workflow_conclusion": "failure",
+  "run_id": 36515396738,
+  "url": "https://github.com/strygo/jtcores/actions/runs/36515396738",
+  "build_revision": "5ed61011f65246a79e6974a26d7b7a07c2f183b0",
+  "workflow_conclusion": "success",
   "jobs": {
     "baseline": {
-      "job_id": 108710766891,
+      "job_id": 109236432756,
       "compile_and_timing": "success",
-      "workflow_failures": [
-        "Name prototype distinctly from production cores"
-      ]
+      "workflow_failures": []
     },
     "program": {
-      "job_id": 108710767069,
+      "job_id": 109236432649,
       "compile_and_timing": "success",
-      "workflow_failures": [
-        "Name prototype distinctly from production cores"
-      ]
+      "workflow_failures": []
     }
   },
   "baseline_revision": "8e73fb10ef1cb8a539ec94db2a0f68ef89eb689c",
   "rtl_sha256": {
     "cores/cps1/hdl/jtcps1_prom_we.v": "7d2452616e0ecaba5724983c85767e65c3a9933f8a64b0eee3aa22467e0eeb81",
     "cores/cps1/hdl/jtcps1_sdram.v": "929232e866263bd9bef8cb436be3272fd12ab0a57fafe27f41b8e913b7f965e8",
+    "cores/cps2/hdl/jtcps2_dec_ctrl.v": "d693889e5799afe7172708f85fc3635885fb1d17fd5d64d499b9e685e87eaa78",
     "cores/cps2/hdl/jtcps2_game.v": "0366b12a2c475ea697bb916fd19f5e149fd3c1deb74bf66fafcaf26142f87859",
     "cores/cps2/hdl/jtcps2_main.v": "6a42d04c47c58c6af2b64bcd083ab672465e5ecdaff4e0dd2bbd39e852b683bc"
   },
-  "patch_sha256": "4e1dacaa1c097002c1a1596f033aca9bd92a4bb44d440bcbd94dccb9adaa90b5",
+  "patches": {
+    "0001-program-window.patch": "4e1dacaa1c097002c1a1596f033aca9bd92a4bb44d440bcbd94dccb9adaa90b5",
+    "0002-decrypt-range.patch": "5113187aae5dddd71b3a96c0ab06774a2e78ec7c4e6d85101e4603b63833913c"
+  },
   "profiles": {
     "baseline": {
       "rbf_sha256": "f64478d44c8007450e0ac3afd39291b12fd5b64dd8afe7fdb748cd8390f7d69e",
       "rbf_bytes": 3390808,
       "minimum_reported_slack_ns": 0.044,
       "slack_report": "Info (332146): Worst-case setup slack is 0.044\nInfo (332146): Worst-case hold slack is 0.225\nInfo (332146): Worst-case recovery slack is 1.070\nInfo (332146): Worst-case removal slack is 0.715\nInfo (332146): Worst-case minimum pulse width slack is 1.041\n",
-      "fit_summary": "Fitter Status : Successful - Sun Sep 27 23:41:55 2026\nQuartus Prime Version : 20.1.1 Build 720 11/11/2020 SJ Lite Edition\nRevision Name : jtcps2\nTop-level Entity Name : sys_top\nFamily : Cyclone V\nDevice : 5CSEBA6U23I7\nTiming Models : Final\nLogic utilization (in ALMs) : 19,640 / 41,910 ( 47 % )\nTotal registers : 31227\nTotal pins : 145 / 314 ( 46 % )\nTotal virtual pins : 0\nTotal block memory bits : 1,612,791 / 5,662,720 ( 28 % )\nTotal RAM Blocks : 235 / 553 ( 42 % )\nTotal DSP Blocks : 46 / 112 ( 41 % )\nTotal HSSI RX PCSs : 0\nTotal HSSI PMA RX Deserializers : 0\nTotal HSSI TX PCSs : 0\nTotal HSSI PMA TX Serializers : 0\nTotal PLLs : 3 / 6 ( 50 % )\nTotal DLLs : 0 / 4 ( 0 % )\n",
+      "fit_summary": "Fitter Status : Successful - Tue Sep 29 05:22:25 2026\nQuartus Prime Version : 20.1.1 Build 720 11/11/2020 SJ Lite Edition\nRevision Name : jtcps2\nTop-level Entity Name : sys_top\nFamily : Cyclone V\nDevice : 5CSEBA6U23I7\nTiming Models : Final\nLogic utilization (in ALMs) : 19,640 / 41,910 ( 47 % )\nTotal registers : 31227\nTotal pins : 145 / 314 ( 46 % )\nTotal virtual pins : 0\nTotal block memory bits : 1,612,791 / 5,662,720 ( 28 % )\nTotal RAM Blocks : 235 / 553 ( 42 % )\nTotal DSP Blocks : 46 / 112 ( 41 % )\nTotal HSSI RX PCSs : 0\nTotal HSSI PMA RX Deserializers : 0\nTotal HSSI TX PCSs : 0\nTotal HSSI PMA TX Serializers : 0\nTotal PLLs : 3 / 6 ( 50 % )\nTotal DLLs : 0 / 4 ( 0 % )\n",
       "sta_summary": "------------------------------------------------------------\nTiming Analyzer Summary\n------------------------------------------------------------\n\nType  : Setup 'emu|pll|pll_inst|altera_pll_i|general[4].gpll~PLL_OUTPUT_COUNTER|divclk'\nSlack : 0.044\nTNS   : 0.000\n\nType  : Setup 'pll_hdmi|pll_hdmi_inst|altera_pll_i|cyclonev_pll|counter[0].output_counter|divclk'\nSlack : 0.477\nTNS   : 0.000\n\nType  : Setup 'emu|pll|pll_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'\nSlack : 1.266\nTNS   : 0.000\n\nType  : Setup 'spi_sck'\nSlack : 5.490\nTNS   : 0.000\n\nType  : Setup 'FPGA_CLK1_50'\nSlack : 7.718\nTNS   : 0.000\n\nType  : Setup 'FPGA_CLK2_50'\nSlack : 9.092\nTNS   : 0.000\n\nType  : Setup 'pll_audio|pll_audio_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'\nSlack : 14.887\nTNS   : 0.000\n\nType  : Hold 'pll_hdmi|pll_hdmi_inst|altera_pll_i|cyclonev_pll|counter[0].output_counter|divclk'\nSlack : 0.225\nTNS   : 0.000\n\nType  : Hold 'emu|pll|pll_inst|altera_pll_i|general[4].gpll~PLL_OUTPUT_COUNTER|divclk'\nSlack : 0.240\nTNS   : 0.000\n\nType  : Hold 'pll_audio|pll_audio_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'\nSlack : 0.255\nTNS   : 0.000\n\nType  : Hold 'spi_sck'\nSlack : 0.365\nTNS   : 0.000\n\nType  : Hold 'emu|pll|pll_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'\nSlack : 0.381\nTNS   : 0.000\n\nType  : Hold 'FPGA_CLK1_50'\nSlack : 0.393\nTNS   : 0.000\n\nType  : Hold 'FPGA_CLK2_50'\nSlack : 0.418\nTNS   : 0.000\n\nType  : Recovery 'emu|pll|pll_inst|altera_pll_i|general[4].gpll~PLL_OUTPUT_COUNTER|divclk'\nSlack : 1.070\nTNS   : 0.000\n\nType  : Recovery 'emu|pll|pll_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'\nSlack : 1.361\nTNS   : 0.000\n\nType  : Recovery 'pll_hdmi|pll_hdmi_inst|altera_pll_i|cyclonev_pll|counter[0].output_counter|divclk'\nSlack : 4.625\nTNS   : 0.000\n\nType  : Recovery 'FPGA_CLK1_50'\nSlack : 16.272\nTNS   : 0.000\n\nType  : Removal 'emu|pll|pll_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'\nSlack : 0.715\nTNS   : 0.000\n\nType  : Removal 'emu|pll|pll_inst|altera_pll_i|general[4].gpll~PLL_OUTPUT_COUNTER|divclk'\nSlack : 0.753\nTNS   : 0.000\n\nType  : Removal 'pll_hdmi|pll_hdmi_inst|altera_pll_i|cyclonev_pll|counter[0].output_counter|divclk'\nSlack : 1.059\nTNS   : 0.000\n\nType  : Removal 'FPGA_CLK1_50'\nSlack : 1.567\nTNS   : 0.000\n\nType  : Minimum Pulse Width 'emu|pll|pll_inst|altera_pll_i|general[0].gpll~FRACTIONAL_PLL|vcoph[0]'\nSlack : 1.041\nTNS   : 0.000\n\nType  : Minimum Pulse Width 'pll_hdmi|pll_hdmi_inst|altera_pll_i|cyclonev_pll|fpll_0|fpll|vcoph[0]'\nSlack : 1.122\nTNS   : 0.000\n\nType  : Minimum Pulse Width 'pll_audio|pll_audio_inst|altera_pll_i|general[0].gpll~FRACTIONAL_PLL|vcoph[0]'\nSlack : 1.196\nTNS   : 0.000\n\nType  : Minimum Pulse Width 'pll_hdmi|pll_hdmi_inst|altera_pll_i|cyclonev_pll|counter[0].output_counter|divclk'\nSlack : 1.929\nTNS   : 0.000\n\nType  : Minimum Pulse Width 'sysmem|fpga_interfaces|clocks_resets|h2f_user0_clk'\nSlack : 3.599\nTNS   : 0.000\n\nType  : Minimum Pulse Width 'emu|pll|pll_inst|altera_pll_i|general[4].gpll~PLL_OUTPUT_COUNTER|divclk'\nSlack : 3.774\nTNS   : 0.000\n\nType  : Minimum Pulse Width 'spi_sck'\nSlack : 4.211\nTNS   : 0.000\n\nType  : Minimum Pulse Width 'emu|pll|pll_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'\nSlack : 8.994\nTNS   : 0.000\n\nType  : Minimum Pulse Width 'FPGA_CLK2_50'\nSlack : 9.206\nTNS   : 0.000\n\nType  : Minimum Pulse Width 'FPGA_CLK1_50'\nSlack : 9.211\nTNS   : 0.000\n\nType  : Minimum Pulse Width 'FPGA_CLK3_50'\nSlack : 9.730\nTNS   : 0.000\n\nType  : Minimum Pulse Width 'pll_audio|pll_audio_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'\nSlack : 18.900\nTNS   : 0.000\n\n------------------------------------------------------------\n",
-      "fitter_manifest": "CPS+ fitter A/B  2026-09-27T21:23:51Z  host=runnervmtr4k5\njtcores: /jtcores @ 8e73fb1  dirty_tracked=no\nquartus: Quartus Prime Shell Version 20.1.1 Build 720 11/11/2020 SJ Lite Edition Copyright (C) 2020  Intel Corporation. All rights reserved. \njtcore args: cps2 -mister --nodbg --nolinter --nocopy  --seed 1 (trials=2)\n\n[cpsplus] trial seed=1 exit=0\n[cpsplus] exit=0  seed=1  trials_used=1\n[cpsplus] Info (332146): Worst-case setup slack is 0.044\n[cpsplus] Info (332146): Worst-case hold slack is 0.225\n[cpsplus] Info (332146): Worst-case recovery slack is 1.070\n[cpsplus] Info (332146): Worst-case removal slack is 0.715\n[cpsplus] Info (332146): Worst-case minimum pulse width slack is 1.041\n[cpsplus] Logic utilization (in ALMs) : 19,640 / 41,910 ( 47 % )\n[cpsplus] Total registers : 31227\n[cpsplus] Total block memory bits : 1,612,791 / 5,662,720 ( 28 % )\n[cpsplus] Total RAM Blocks : 235 / 553 ( 42 % )\n[cpsplus] Total DSP Blocks : 46 / 112 ( 41 % )\n\nsha256:\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  ./cpsplus/by_entity_cpsplus.txt\n42c59b8740e5af7ad3a21a8ad194ffac5b3a60c6b8fbf535b03609185df5f6d4  ./cpsplus/by_entity_full.txt\n23cb85ad3d4a04a3c6f036e2158823f5eeb8b136d3b86f2b2fab194c0ea18a16  ./cpsplus/cfgstr\n71677bce94193eb6b891f625ad73cf30c10dafb018f57d46359808195336e624  ./cpsplus/jtcps2.fit.rpt.gz\n6700e491a127b3177ade90dc363e3e379f12b98c527332c0916508b565602c93  ./cpsplus/jtcps2.fit.summary\n9cc591cbd39aad610fc623bf3d8221634fca65818ed3bab0aa972c996e1eeb3f  ./cpsplus/jtcps2.flow.rpt\n2ef827901f5d5717a5e367a721580e2b7828aec98f482fca842dd823e12cfe8d  ./cpsplus/jtcps2.log\na3ef366d842cf67e65f40c79233e6b724707af0a879c95356d3b88da585534b7  ./cpsplus/jtcps2.map.rpt.gz\n913d2ebce0c310f20360b6b8c60e794e8f1592203412b202d0462e946b17d320  ./cpsplus/jtcps2.map.summary\nf64478d44c8007450e0ac3afd39291b12fd5b64dd8afe7fdb748cd8390f7d69e  ./cpsplus/jtcps2.rbf\n1e236c59f41eea7d765196a7d448ad796f00a2128c509b80276e68a602b76422  ./cpsplus/jtcps2.sta.rpt.gz\n9d24151091e07993a66922df2d3aaa9d5eea2dad13e64a7383ac3f0f72f6280c  ./cpsplus/jtcps2.sta.summary\nf64478d44c8007450e0ac3afd39291b12fd5b64dd8afe7fdb748cd8390f7d69e  ./cpsplus/jtcps2_cpsplus.rbf\n20f1dd5c16926ddd762eb038d8758a9747ffd07998ae89f815b75a9c4162754e  ./cpsplus/sdram_io.rpt\n20f1dd5c16926ddd762eb038d8758a9747ffd07998ae89f815b75a9c4162754e  ./cpsplus/sdram_stuck.rpt\n74ce82abb4c88284fa547eae44e290bcea53571be3fdc238a70c528384b6dda3  ./cpsplus/sta_detail.log\nb26cfd013b94b221445580edfca6640398be25e0bcced371b1c0dda3f872dbe4  ./cpsplus/worst_paths.rpt\n704df772c5f3111587b6bf031660868b5f07860593fbc072b5a84065010c86dc  ./cpsplus/worst_paths_top100.rpt\n0eeb3633716f434093a6d81ae6e5adf32bc66a72fef42a8c23f7968686bd17b4  ./cpsplus/worst_slack.txt\n",
+      "fitter_manifest": "CPS+ fitter A/B  2026-09-29T03:05:04Z  host=runnervmtr4k5\njtcores: /jtcores @ 8e73fb1  dirty_tracked=no\nquartus: Quartus Prime Shell Version 20.1.1 Build 720 11/11/2020 SJ Lite Edition Copyright (C) 2020  Intel Corporation. All rights reserved. \njtcore args: cps2 -mister --nodbg --nolinter --nocopy  --seed 1 (trials=2)\n\n[cpsplus] trial seed=1 exit=0\n[cpsplus] exit=0  seed=1  trials_used=1\n[cpsplus] Info (332146): Worst-case setup slack is 0.044\n[cpsplus] Info (332146): Worst-case hold slack is 0.225\n[cpsplus] Info (332146): Worst-case recovery slack is 1.070\n[cpsplus] Info (332146): Worst-case removal slack is 0.715\n[cpsplus] Info (332146): Worst-case minimum pulse width slack is 1.041\n[cpsplus] Logic utilization (in ALMs) : 19,640 / 41,910 ( 47 % )\n[cpsplus] Total registers : 31227\n[cpsplus] Total block memory bits : 1,612,791 / 5,662,720 ( 28 % )\n[cpsplus] Total RAM Blocks : 235 / 553 ( 42 % )\n[cpsplus] Total DSP Blocks : 46 / 112 ( 41 % )\n\nsha256:\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  ./cpsplus/by_entity_cpsplus.txt\n42c59b8740e5af7ad3a21a8ad194ffac5b3a60c6b8fbf535b03609185df5f6d4  ./cpsplus/by_entity_full.txt\n23cb85ad3d4a04a3c6f036e2158823f5eeb8b136d3b86f2b2fab194c0ea18a16  ./cpsplus/cfgstr\n1918aabe74c674f0e4490eed3d0742767b9772d71810b7854fa543d230c99518  ./cpsplus/jtcps2.fit.rpt.gz\ne7a6327d793750822e73d19ae25a98a06524f2d3e3e30e590094fbcad3434cb9  ./cpsplus/jtcps2.fit.summary\n5c9d3c15173e8d9abc5af2ed4c0c78b1aba7dc19f05860b4fc15f12c18eaac7c  ./cpsplus/jtcps2.flow.rpt\n245d016421cb71e2084dd9ca2d5c81342a09af51241530f009eb372089343d90  ./cpsplus/jtcps2.log\ndaabb7ed29c7c43c18ff75cac0fb0351067b335b8275a2b18d1b79934d3217b1  ./cpsplus/jtcps2.map.rpt.gz\n584621aaa35321296584f63445cb8c3800fc885249ca4502b5a872133360db49  ./cpsplus/jtcps2.map.summary\nf64478d44c8007450e0ac3afd39291b12fd5b64dd8afe7fdb748cd8390f7d69e  ./cpsplus/jtcps2.rbf\na222d561737e0bd2a4381581927c8080487c38c84cca86be5927f50e63214a35  ./cpsplus/jtcps2.sta.rpt.gz\n9d24151091e07993a66922df2d3aaa9d5eea2dad13e64a7383ac3f0f72f6280c  ./cpsplus/jtcps2.sta.summary\nf64478d44c8007450e0ac3afd39291b12fd5b64dd8afe7fdb748cd8390f7d69e  ./cpsplus/jtcps2_cpsplus.rbf\n20f1dd5c16926ddd762eb038d8758a9747ffd07998ae89f815b75a9c4162754e  ./cpsplus/sdram_io.rpt\n20f1dd5c16926ddd762eb038d8758a9747ffd07998ae89f815b75a9c4162754e  ./cpsplus/sdram_stuck.rpt\n5062c1bc29e74c730782745ee63b70e3994625b2d563bfb49b847acc0733d524  ./cpsplus/sta_detail.log\nb26cfd013b94b221445580edfca6640398be25e0bcced371b1c0dda3f872dbe4  ./cpsplus/worst_paths.rpt\n704df772c5f3111587b6bf031660868b5f07860593fbc072b5a84065010c86dc  ./cpsplus/worst_paths_top100.rpt\n0eeb3633716f434093a6d81ae6e5adf32bc66a72fef42a8c23f7968686bd17b4  ./cpsplus/worst_slack.txt\n",
       "timing_coverage": {
         "loaded_sdc_files": [
           "../../../modules/jtframe/target/mister/hdl/sys/sys_top.sdc",
@@ -187,13 +187,13 @@
       }
     },
     "program": {
-      "rbf_sha256": "a816ca4e2f77f80bd1542de98e187e6fcafba03391e4b6ed31d714618f1c6ef0",
-      "rbf_bytes": 3414456,
-      "minimum_reported_slack_ns": 0.113,
-      "slack_report": "Info (332146): Worst-case setup slack is 0.282\nInfo (332146): Worst-case hold slack is 0.113\nInfo (332146): Worst-case recovery slack is 0.899\nInfo (332146): Worst-case removal slack is 0.711\nInfo (332146): Worst-case minimum pulse width slack is 1.041\n",
-      "fit_summary": "Fitter Status : Successful - Sun Sep 27 23:40:30 2026\nQuartus Prime Version : 20.1.1 Build 720 11/11/2020 SJ Lite Edition\nRevision Name : jtcps2\nTop-level Entity Name : sys_top\nFamily : Cyclone V\nDevice : 5CSEBA6U23I7\nTiming Models : Final\nLogic utilization (in ALMs) : 19,544 / 41,910 ( 47 % )\nTotal registers : 31218\nTotal pins : 145 / 314 ( 46 % )\nTotal virtual pins : 0\nTotal block memory bits : 1,612,791 / 5,662,720 ( 28 % )\nTotal RAM Blocks : 235 / 553 ( 42 % )\nTotal DSP Blocks : 46 / 112 ( 41 % )\nTotal HSSI RX PCSs : 0\nTotal HSSI PMA RX Deserializers : 0\nTotal HSSI TX PCSs : 0\nTotal HSSI PMA TX Serializers : 0\nTotal PLLs : 3 / 6 ( 50 % )\nTotal DLLs : 0 / 4 ( 0 % )\n",
-      "sta_summary": "------------------------------------------------------------\nTiming Analyzer Summary\n------------------------------------------------------------\n\nType  : Setup 'emu|pll|pll_inst|altera_pll_i|general[4].gpll~PLL_OUTPUT_COUNTER|divclk'\nSlack : 0.282\nTNS   : 0.000\n\nType  : Setup 'pll_hdmi|pll_hdmi_inst|altera_pll_i|cyclonev_pll|counter[0].output_counter|divclk'\nSlack : 0.363\nTNS   : 0.000\n\nType  : Setup 'emu|pll|pll_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'\nSlack : 1.561\nTNS   : 0.000\n\nType  : Setup 'spi_sck'\nSlack : 6.210\nTNS   : 0.000\n\nType  : Setup 'FPGA_CLK1_50'\nSlack : 7.036\nTNS   : 0.000\n\nType  : Setup 'FPGA_CLK2_50'\nSlack : 12.355\nTNS   : 0.000\n\nType  : Setup 'pll_audio|pll_audio_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'\nSlack : 15.353\nTNS   : 0.000\n\nType  : Hold 'FPGA_CLK1_50'\nSlack : 0.113\nTNS   : 0.000\n\nType  : Hold 'pll_hdmi|pll_hdmi_inst|altera_pll_i|cyclonev_pll|counter[0].output_counter|divclk'\nSlack : 0.230\nTNS   : 0.000\n\nType  : Hold 'emu|pll|pll_inst|altera_pll_i|general[4].gpll~PLL_OUTPUT_COUNTER|divclk'\nSlack : 0.243\nTNS   : 0.000\n\nType  : Hold 'FPGA_CLK2_50'\nSlack : 0.259\nTNS   : 0.000\n\nType  : Hold 'pll_audio|pll_audio_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'\nSlack : 0.285\nTNS   : 0.000\n\nType  : Hold 'spi_sck'\nSlack : 0.367\nTNS   : 0.000\n\nType  : Hold 'emu|pll|pll_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'\nSlack : 0.386\nTNS   : 0.000\n\nType  : Recovery 'emu|pll|pll_inst|altera_pll_i|general[4].gpll~PLL_OUTPUT_COUNTER|divclk'\nSlack : 0.899\nTNS   : 0.000\n\nType  : Recovery 'emu|pll|pll_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'\nSlack : 1.358\nTNS   : 0.000\n\nType  : Recovery 'pll_hdmi|pll_hdmi_inst|altera_pll_i|cyclonev_pll|counter[0].output_counter|divclk'\nSlack : 3.822\nTNS   : 0.000\n\nType  : Recovery 'FPGA_CLK1_50'\nSlack : 17.334\nTNS   : 0.000\n\nType  : Removal 'emu|pll|pll_inst|altera_pll_i|general[4].gpll~PLL_OUTPUT_COUNTER|divclk'\nSlack : 0.711\nTNS   : 0.000\n\nType  : Removal 'emu|pll|pll_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'\nSlack : 0.716\nTNS   : 0.000\n\nType  : Removal 'FPGA_CLK1_50'\nSlack : 1.230\nTNS   : 0.000\n\nType  : Removal 'pll_hdmi|pll_hdmi_inst|altera_pll_i|cyclonev_pll|counter[0].output_counter|divclk'\nSlack : 1.246\nTNS   : 0.000\n\nType  : Minimum Pulse Width 'emu|pll|pll_inst|altera_pll_i|general[0].gpll~FRACTIONAL_PLL|vcoph[0]'\nSlack : 1.041\nTNS   : 0.000\n\nType  : Minimum Pulse Width 'pll_hdmi|pll_hdmi_inst|altera_pll_i|cyclonev_pll|fpll_0|fpll|vcoph[0]'\nSlack : 1.122\nTNS   : 0.000\n\nType  : Minimum Pulse Width 'pll_audio|pll_audio_inst|altera_pll_i|general[0].gpll~FRACTIONAL_PLL|vcoph[0]'\nSlack : 1.196\nTNS   : 0.000\n\nType  : Minimum Pulse Width 'pll_hdmi|pll_hdmi_inst|altera_pll_i|cyclonev_pll|counter[0].output_counter|divclk'\nSlack : 1.925\nTNS   : 0.000\n\nType  : Minimum Pulse Width 'sysmem|fpga_interfaces|clocks_resets|h2f_user0_clk'\nSlack : 3.587\nTNS   : 0.000\n\nType  : Minimum Pulse Width 'emu|pll|pll_inst|altera_pll_i|general[4].gpll~PLL_OUTPUT_COUNTER|divclk'\nSlack : 3.774\nTNS   : 0.000\n\nType  : Minimum Pulse Width 'spi_sck'\nSlack : 4.215\nTNS   : 0.000\n\nType  : Minimum Pulse Width 'emu|pll|pll_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'\nSlack : 8.997\nTNS   : 0.000\n\nType  : Minimum Pulse Width 'FPGA_CLK2_50'\nSlack : 9.205\nTNS   : 0.000\n\nType  : Minimum Pulse Width 'FPGA_CLK1_50'\nSlack : 9.211\nTNS   : 0.000\n\nType  : Minimum Pulse Width 'FPGA_CLK3_50'\nSlack : 9.730\nTNS   : 0.000\n\nType  : Minimum Pulse Width 'pll_audio|pll_audio_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'\nSlack : 18.914\nTNS   : 0.000\n\n------------------------------------------------------------\n",
-      "fitter_manifest": "CPS+ fitter A/B  2026-09-27T21:23:47Z  host=runnervmtr4k5\njtcores: /jtcores @ 1f3cc9c  dirty_tracked=no\nquartus: Quartus Prime Shell Version 20.1.1 Build 720 11/11/2020 SJ Lite Edition Copyright (C) 2020  Intel Corporation. All rights reserved. \njtcore args: cps2 -mister --nodbg --nolinter --nocopy -d CPS2_PRG8 --seed 1 (trials=2)\n\n[cpsplus] trial seed=1 exit=0\n[cpsplus] exit=0  seed=1  trials_used=1\n[cpsplus] Info (332146): Worst-case setup slack is 0.282\n[cpsplus] Info (332146): Worst-case hold slack is 0.113\n[cpsplus] Info (332146): Worst-case recovery slack is 0.899\n[cpsplus] Info (332146): Worst-case removal slack is 0.711\n[cpsplus] Info (332146): Worst-case minimum pulse width slack is 1.041\n[cpsplus] Logic utilization (in ALMs) : 19,544 / 41,910 ( 47 % )\n[cpsplus] Total registers : 31218\n[cpsplus] Total block memory bits : 1,612,791 / 5,662,720 ( 28 % )\n[cpsplus] Total RAM Blocks : 235 / 553 ( 42 % )\n[cpsplus] Total DSP Blocks : 46 / 112 ( 41 % )\n\nsha256:\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  ./cpsplus/by_entity_cpsplus.txt\n42c59b8740e5af7ad3a21a8ad194ffac5b3a60c6b8fbf535b03609185df5f6d4  ./cpsplus/by_entity_full.txt\n23cb85ad3d4a04a3c6f036e2158823f5eeb8b136d3b86f2b2fab194c0ea18a16  ./cpsplus/cfgstr\n67bd5a6a9a5a54630f5b89cc0527f194821fc856fe00b0e72542f21dee1ab3ba  ./cpsplus/jtcps2.fit.rpt.gz\n9167f94c71013b8a3bdab21d109d0015940b779a983f0d91094a0fb549d93598  ./cpsplus/jtcps2.fit.summary\n373ca25b979b0650890718b0ea8a0da71bf5fc19e3025416488af11a4065c47a  ./cpsplus/jtcps2.flow.rpt\n77ac8d56cdf68c6d3bee515f60cf0e7fc3094ee61703730811525e3a1561839f  ./cpsplus/jtcps2.log\n4118e6a42a6c005bf6a3533846fd9e4be2f1d2a7c6f3ac69c678c61e4d75c852  ./cpsplus/jtcps2.map.rpt.gz\n5bceaedfd3264587c19542f25fe2e43ac973e3005bbeb665307a8651b33886ac  ./cpsplus/jtcps2.map.summary\na816ca4e2f77f80bd1542de98e187e6fcafba03391e4b6ed31d714618f1c6ef0  ./cpsplus/jtcps2.rbf\nea4ae1e10d0842ce3e3798b22d133babb75fd79b1beee03de9916ea4e76c8f0c  ./cpsplus/jtcps2.sta.rpt.gz\n8d56d50c34a45deda4a33d2daaea02d3762d4520f40aa5c8eb6d9a34d1e5ff1e  ./cpsplus/jtcps2.sta.summary\na816ca4e2f77f80bd1542de98e187e6fcafba03391e4b6ed31d714618f1c6ef0  ./cpsplus/jtcps2_cpsplus.rbf\n20f1dd5c16926ddd762eb038d8758a9747ffd07998ae89f815b75a9c4162754e  ./cpsplus/sdram_io.rpt\n5a7eb114f51490b25fbbf890f73d6e05b3f8cfb0cc61e4f15cd0c07768b8bed1  ./cpsplus/sdram_stuck.rpt\ncdb22e551aae4b76e0f86abf191a8e8d24883f5dc9d006330712990295ac7218  ./cpsplus/sta_detail.log\nf19d69b5ccea9459c4bcfb01ed3535a8240bafb7312ffcf0bb17aa6b7065f441  ./cpsplus/worst_paths.rpt\n899890bd2369f5a1276f3e3b20d07558fe64a249fe6c444c9526f21387557b37  ./cpsplus/worst_paths_top100.rpt\n5b8e2b65962c9ef14fb7e53796d60b2e0e06d34714a261326ac58e305e0a2316  ./cpsplus/worst_slack.txt\n",
+      "rbf_sha256": "71e4172e54e673cb06e49c9ba3c59b807fc9f23d0df4dddc8ee9ea7e64a4309f",
+      "rbf_bytes": 3452796,
+      "minimum_reported_slack_ns": 0.086,
+      "slack_report": "Info (332146): Worst-case setup slack is 0.086\nInfo (332146): Worst-case hold slack is 0.244\nInfo (332146): Worst-case recovery slack is 1.155\nInfo (332146): Worst-case removal slack is 0.645\nInfo (332146): Worst-case minimum pulse width slack is 1.041\n",
+      "fit_summary": "Fitter Status : Successful - Tue Sep 29 05:39:16 2026\nQuartus Prime Version : 20.1.1 Build 720 11/11/2020 SJ Lite Edition\nRevision Name : jtcps2\nTop-level Entity Name : sys_top\nFamily : Cyclone V\nDevice : 5CSEBA6U23I7\nTiming Models : Final\nLogic utilization (in ALMs) : 19,599 / 41,910 ( 47 % )\nTotal registers : 31161\nTotal pins : 145 / 314 ( 46 % )\nTotal virtual pins : 0\nTotal block memory bits : 1,612,791 / 5,662,720 ( 28 % )\nTotal RAM Blocks : 235 / 553 ( 42 % )\nTotal DSP Blocks : 46 / 112 ( 41 % )\nTotal HSSI RX PCSs : 0\nTotal HSSI PMA RX Deserializers : 0\nTotal HSSI TX PCSs : 0\nTotal HSSI PMA TX Serializers : 0\nTotal PLLs : 3 / 6 ( 50 % )\nTotal DLLs : 0 / 4 ( 0 % )\n",
+      "sta_summary": "------------------------------------------------------------\nTiming Analyzer Summary\n------------------------------------------------------------\n\nType  : Setup 'emu|pll|pll_inst|altera_pll_i|general[4].gpll~PLL_OUTPUT_COUNTER|divclk'\nSlack : 0.086\nTNS   : 0.000\n\nType  : Setup 'pll_hdmi|pll_hdmi_inst|altera_pll_i|cyclonev_pll|counter[0].output_counter|divclk'\nSlack : 0.334\nTNS   : 0.000\n\nType  : Setup 'emu|pll|pll_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'\nSlack : 1.298\nTNS   : 0.000\n\nType  : Setup 'spi_sck'\nSlack : 5.530\nTNS   : 0.000\n\nType  : Setup 'FPGA_CLK1_50'\nSlack : 8.433\nTNS   : 0.000\n\nType  : Setup 'FPGA_CLK2_50'\nSlack : 12.777\nTNS   : 0.000\n\nType  : Setup 'pll_audio|pll_audio_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'\nSlack : 15.385\nTNS   : 0.000\n\nType  : Hold 'emu|pll|pll_inst|altera_pll_i|general[4].gpll~PLL_OUTPUT_COUNTER|divclk'\nSlack : 0.244\nTNS   : 0.000\n\nType  : Hold 'pll_audio|pll_audio_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'\nSlack : 0.264\nTNS   : 0.000\n\nType  : Hold 'pll_hdmi|pll_hdmi_inst|altera_pll_i|cyclonev_pll|counter[0].output_counter|divclk'\nSlack : 0.277\nTNS   : 0.000\n\nType  : Hold 'FPGA_CLK1_50'\nSlack : 0.292\nTNS   : 0.000\n\nType  : Hold 'emu|pll|pll_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'\nSlack : 0.351\nTNS   : 0.000\n\nType  : Hold 'FPGA_CLK2_50'\nSlack : 0.418\nTNS   : 0.000\n\nType  : Hold 'spi_sck'\nSlack : 0.460\nTNS   : 0.000\n\nType  : Recovery 'emu|pll|pll_inst|altera_pll_i|general[4].gpll~PLL_OUTPUT_COUNTER|divclk'\nSlack : 1.155\nTNS   : 0.000\n\nType  : Recovery 'emu|pll|pll_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'\nSlack : 1.556\nTNS   : 0.000\n\nType  : Recovery 'pll_hdmi|pll_hdmi_inst|altera_pll_i|cyclonev_pll|counter[0].output_counter|divclk'\nSlack : 4.007\nTNS   : 0.000\n\nType  : Recovery 'FPGA_CLK1_50'\nSlack : 16.030\nTNS   : 0.000\n\nType  : Removal 'emu|pll|pll_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'\nSlack : 0.645\nTNS   : 0.000\n\nType  : Removal 'pll_hdmi|pll_hdmi_inst|altera_pll_i|cyclonev_pll|counter[0].output_counter|divclk'\nSlack : 0.696\nTNS   : 0.000\n\nType  : Removal 'emu|pll|pll_inst|altera_pll_i|general[4].gpll~PLL_OUTPUT_COUNTER|divclk'\nSlack : 0.698\nTNS   : 0.000\n\nType  : Removal 'FPGA_CLK1_50'\nSlack : 1.469\nTNS   : 0.000\n\nType  : Minimum Pulse Width 'emu|pll|pll_inst|altera_pll_i|general[0].gpll~FRACTIONAL_PLL|vcoph[0]'\nSlack : 1.041\nTNS   : 0.000\n\nType  : Minimum Pulse Width 'pll_hdmi|pll_hdmi_inst|altera_pll_i|cyclonev_pll|fpll_0|fpll|vcoph[0]'\nSlack : 1.122\nTNS   : 0.000\n\nType  : Minimum Pulse Width 'pll_audio|pll_audio_inst|altera_pll_i|general[0].gpll~FRACTIONAL_PLL|vcoph[0]'\nSlack : 1.196\nTNS   : 0.000\n\nType  : Minimum Pulse Width 'pll_hdmi|pll_hdmi_inst|altera_pll_i|cyclonev_pll|counter[0].output_counter|divclk'\nSlack : 1.934\nTNS   : 0.000\n\nType  : Minimum Pulse Width 'sysmem|fpga_interfaces|clocks_resets|h2f_user0_clk'\nSlack : 3.584\nTNS   : 0.000\n\nType  : Minimum Pulse Width 'emu|pll|pll_inst|altera_pll_i|general[4].gpll~PLL_OUTPUT_COUNTER|divclk'\nSlack : 3.773\nTNS   : 0.000\n\nType  : Minimum Pulse Width 'spi_sck'\nSlack : 4.206\nTNS   : 0.000\n\nType  : Minimum Pulse Width 'emu|pll|pll_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'\nSlack : 8.993\nTNS   : 0.000\n\nType  : Minimum Pulse Width 'FPGA_CLK2_50'\nSlack : 9.209\nTNS   : 0.000\n\nType  : Minimum Pulse Width 'FPGA_CLK1_50'\nSlack : 9.213\nTNS   : 0.000\n\nType  : Minimum Pulse Width 'FPGA_CLK3_50'\nSlack : 9.730\nTNS   : 0.000\n\nType  : Minimum Pulse Width 'pll_audio|pll_audio_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'\nSlack : 18.896\nTNS   : 0.000\n\n------------------------------------------------------------\n",
+      "fitter_manifest": "CPS+ fitter A/B  2026-09-29T03:05:03Z  host=runnervmtr4k5\njtcores: /jtcores @ 5ed6101  dirty_tracked=no\nquartus: Quartus Prime Shell Version 20.1.1 Build 720 11/11/2020 SJ Lite Edition Copyright (C) 2020  Intel Corporation. All rights reserved. \njtcore args: cps2 -mister --nodbg --nolinter --nocopy -d CPS2_PRG8 --seed 1 (trials=2)\n\n[cpsplus] trial seed=1 exit=1\n[cpsplus] trial seed=2 exit=0\n[cpsplus] exit=0  seed=2  trials_used=2\n[cpsplus] Info (332146): Worst-case setup slack is 0.086\n[cpsplus] Info (332146): Worst-case hold slack is 0.244\n[cpsplus] Info (332146): Worst-case recovery slack is 1.155\n[cpsplus] Info (332146): Worst-case removal slack is 0.645\n[cpsplus] Info (332146): Worst-case minimum pulse width slack is 1.041\n[cpsplus] Logic utilization (in ALMs) : 19,599 / 41,910 ( 47 % )\n[cpsplus] Total registers : 31161\n[cpsplus] Total block memory bits : 1,612,791 / 5,662,720 ( 28 % )\n[cpsplus] Total RAM Blocks : 235 / 553 ( 42 % )\n[cpsplus] Total DSP Blocks : 46 / 112 ( 41 % )\n\nsha256:\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  ./cpsplus/by_entity_cpsplus.txt\n42c59b8740e5af7ad3a21a8ad194ffac5b3a60c6b8fbf535b03609185df5f6d4  ./cpsplus/by_entity_full.txt\n23cb85ad3d4a04a3c6f036e2158823f5eeb8b136d3b86f2b2fab194c0ea18a16  ./cpsplus/cfgstr\nf04c96980c9199055aaa35c5a2117f3c93df0c42a97af4a584b6d8b1729cb149  ./cpsplus/jtcps2.fit.rpt.gz\n381448304eb3f57e74a9fb2ab28f14fa76e23de280d4ab845ddabbac8dfe0441  ./cpsplus/jtcps2.fit.summary\n9bb2c06dac2e19a3d77e4aa6054c51c9542c5a47cb57e06767eca89582ea8e8a  ./cpsplus/jtcps2.flow.rpt\nf2df0154fcde9449d10e086e95185d4b1601252572f3824fa471b45a6393b542  ./cpsplus/jtcps2.log\nde827485c3eb8019e1d8bb4d39aa39610d0ebc916db6c8c09e10db986035bdd0  ./cpsplus/jtcps2.map.rpt.gz\nfc19b6a53a226806a839b9a6dfb1009b55a6db67068fd41e96ca5581c7012a32  ./cpsplus/jtcps2.map.summary\n71e4172e54e673cb06e49c9ba3c59b807fc9f23d0df4dddc8ee9ea7e64a4309f  ./cpsplus/jtcps2.rbf\n1cee91e8878c21369734376a13b91579b672b89e553867f80343d625cd19228a  ./cpsplus/jtcps2.sta.rpt.gz\ncc856e2e19ddf7ce1f0d6cce6b39469c8804ffbc74f5aa402d99e4cee9477142  ./cpsplus/jtcps2.sta.summary\n71e4172e54e673cb06e49c9ba3c59b807fc9f23d0df4dddc8ee9ea7e64a4309f  ./cpsplus/jtcps2_cpsplus.rbf\n20f1dd5c16926ddd762eb038d8758a9747ffd07998ae89f815b75a9c4162754e  ./cpsplus/sdram_io.rpt\n5a7eb114f51490b25fbbf890f73d6e05b3f8cfb0cc61e4f15cd0c07768b8bed1  ./cpsplus/sdram_stuck.rpt\n96d80975a2f4e22e6073a65fc8ea7606af7749d60aeac65d3e43f9090cc5e660  ./cpsplus/sta_detail.log\nfc0925f0648bea394b2f3cbcc50839d8dc47e5eca3119a54695ad7bd56a850f1  ./cpsplus/worst_paths.rpt\nfabbc116406b068bd4538bd93884e518b2b16f04a916ffbee666089a4a2ff1f1  ./cpsplus/worst_paths_top100.rpt\n395620cd6e949703b8670a7d4aeb49bdfa96f346827bb2730013c2d1059d8abb  ./cpsplus/worst_slack.txt\n",
       "timing_coverage": {
         "loaded_sdc_files": [
           "../../../modules/jtframe/target/mister/hdl/sys/sys_top.sdc",
@@ -348,34 +348,103 @@
   "timing_coverage_matches_baseline": true,
   "external_sdram_timing_fully_constrained": false,
   "controls": {
-    "extension_sha256": "0ac3c67720a449db16dce351252152bf521e45a5145f5939c0238d120b44d469",
-    "addon_sha256": "b20faf4243014769e9f10599926ceeb8bf71acf97ccd025931d9f7eaf8dd13f3",
-    "mra_sha256": {
-      "SFA3 PRG8 baseline.mra": "3bf50d5028f5c588a6e8136ea34809006a7f7a226cfb0c4783404b8797e2b1be",
-      "SFA3 PRG8 legacy.mra": "3327a4ced47ab94afb80a89c355c99e96cfe07b3261ab8592507bdf661271aaf",
-      "SFA3 PRG8 enabled.mra": "7c107983369e0a6fb6855d0ba83e0dafa9abf3eef9c1a46cb531568b8971ed4f",
-      "SFA3 PRG8 hook.mra": "5a4a02769bc82eeb9470b11085bcb60852ae4b6062677139904cf5984b68beeb"
+    "sfa3": {
+      "extension_sha256": "548988baf16b8aa593c881ee5a6b08a785534e670274af19234bdbde95292e56",
+      "addon_sha256": "1b65084657fce004a4e408d569bf28de308ddd621123253883cc77cce6d8eaa5",
+      "mra_sha256": {
+        "SFA3 PRG8 baseline.mra": "3bf50d5028f5c588a6e8136ea34809006a7f7a226cfb0c4783404b8797e2b1be",
+        "SFA3 PRG8 legacy.mra": "3327a4ced47ab94afb80a89c355c99e96cfe07b3261ab8592507bdf661271aaf",
+        "SFA3 PRG8 enabled.mra": "59ecab3abe1c347703e674609943ea8981f5da4ef2f3258fbf7e838b499d743f",
+        "SFA3 PRG8 hook.mra": "b1e81537740740131548f732692ef9be6714986c63cee9d09d22cf16ad8960a9"
+      },
+      "assembled_images": {
+        "baseline": {
+          "bytes": 46407744,
+          "sha256": "4c6aea45d0e81990cc931d70c39c489b0ef35256538a14dfb5515944676d5a99"
+        },
+        "legacy": {
+          "bytes": 46407744,
+          "sha256": "4c6aea45d0e81990cc931d70c39c489b0ef35256538a14dfb5515944676d5a99"
+        },
+        "enabled": {
+          "bytes": 50602048,
+          "sha256": "93d3d72d7eaad21370d37cb42181fb0b6101356eabee5e88d3ee1818e5ba2c19"
+        },
+        "hook": {
+          "bytes": 50602048,
+          "sha256": "06f2af5e38c53fa835fc4f5a5cfe4bc9da9f8a8c0fb91b604c8e4d072c35092f"
+        }
+      },
+      "hooks": {
+        "enabled": {
+          "original_program_bytes_changed": 0,
+          "patch_offsets": [],
+          "cipher_round_trip": true
+        },
+        "hook": {
+          "original_program_bytes_changed": 4,
+          "patch_offsets": [
+            "0x44"
+          ],
+          "cipher_round_trip": true
+        }
+      }
     },
-    "assembled_images": {
-      "baseline": {
-        "bytes": 46407744,
-        "sha256": "4c6aea45d0e81990cc931d70c39c489b0ef35256538a14dfb5515944676d5a99"
+    "vsav2": {
+      "extension_sha256": "ea5adfeb7ae9e5e9f5ab5966a6a5329eec2e0f476afe1886f5a908b9b387e99c",
+      "addon_sha256": "4ed9750562416741d0d6115adc6a2804adb7d1bd789e7c8ccf36f46b1d98fe1f",
+      "mra_sha256": {
+        "VSAV2 PRG8 baseline.mra": "8c13b9848954a0fbaad1aa98c5e3d19998ca2525b041ba2ef75f075c4dc29255",
+        "VSAV2 PRG8 legacy.mra": "7abc5ad56b494a3b0d4c30e3c0375fac851662d414f18f40ad005f14501eaf63",
+        "VSAV2 PRG8 enabled.mra": "8752f23c9c9d46596315f41c94d2cbdc30f3e9277706159490d3bdd7a63995d6",
+        "VSAV2 PRG8 hook.mra": "b4363a9dc4e50ba2172f34428cd42d953cce46553dc6003729dd806496173c31",
+        "VSAV2 PRG8 hook2.mra": "ec3739c3712c1fec45c1e6eb19b8df11ffbc27a93c1ec0553c32a9d4ae064892"
       },
-      "legacy": {
-        "bytes": 46407744,
-        "sha256": "4c6aea45d0e81990cc931d70c39c489b0ef35256538a14dfb5515944676d5a99"
+      "assembled_images": {
+        "baseline": {
+          "bytes": 46407744,
+          "sha256": "a8aa95c062cee1c9ffe0f33f3e73684df922f39e6b74175eb645aa1e15b2bd44"
+        },
+        "legacy": {
+          "bytes": 46407744,
+          "sha256": "a8aa95c062cee1c9ffe0f33f3e73684df922f39e6b74175eb645aa1e15b2bd44"
+        },
+        "enabled": {
+          "bytes": 50602048,
+          "sha256": "25cdf85e844047905dbcfa84299a2418019be7afcaed33d851e6f73d42ee0d5c"
+        },
+        "hook": {
+          "bytes": 50602048,
+          "sha256": "06f32680087e5ec633ebf8a047f18e2f64e337a285fe0f85cf4bfbd5ca7bba49"
+        },
+        "hook2": {
+          "bytes": 50602048,
+          "sha256": "131865f23ac377ed14aab84a2597d390c554ec00b8bbbab101e9a26da4d9e13d"
+        }
       },
-      "enabled": {
-        "bytes": 50602048,
-        "sha256": "e2799e48db87b6500c8e1ff306b17c54bcf528c854f2ff3f85fb435db23203b2"
-      },
-      "hook": {
-        "bytes": 50602048,
-        "sha256": "d8085dca8ae7f9e7f343a8785381057a196e15767368f3a14b49cdc7522a3fa7"
+      "hooks": {
+        "enabled": {
+          "original_program_bytes_changed": 0,
+          "patch_offsets": [],
+          "cipher_round_trip": true
+        },
+        "hook": {
+          "original_program_bytes_changed": 4,
+          "patch_offsets": [
+            "0x44"
+          ],
+          "cipher_round_trip": true
+        },
+        "hook2": {
+          "original_program_bytes_changed": 16,
+          "patch_offsets": [
+            "0x44",
+            "0x3fb140"
+          ],
+          "cipher_round_trip": true
+        }
       }
     }
   },
-  "kit_sha256": "64cdaf7fd7730b94b5e9ad3d4adb83395b3d36a1456f63933f35a68599cdff55",
-  "reproduce": "python3 cpsplus/evolution/collect_build.py 36351443421",
-  "collector_sha256": "08b419972d32e16b0f708be66004853ba5ac7115901f060fff2262ce8b9de20c"
+  "kit_sha256": "78aae48a6f6df9ceea0cf75e13f247f504acf0d937f888191b19ea1bdce2d8b8"
 }

@@ -14,6 +14,17 @@
   "extension_sdram_byte_start": 8388608,
   "header_marker_offset": 12,
   "header_marker_hex": "43320101",
+  "object_slice": {
+    "profile": "CPS2_PRG8 CPS2_OBJEXT JTFRAME_SDRAM_XL (jtcore: -d CPS2_PRG8 -d CPS2_OBJEXT -d JTFRAME_SDRAM_XL -u JTFRAME_SDRAM_LARGE)",
+    "header_marker_hex": "43320103",
+    "gfx_region_bytes": 41943040,
+    "slice_gfx_offset": 33554432,
+    "slice_bytes": 8388608,
+    "slice_sdram_bank": 2,
+    "slice_sdram_byte_start": 16777216,
+    "tile_code_bit": 18,
+    "sdram_module_bytes": 134217728
+  },
   "stock_controls": {
     "sfa3": {
       "repository": "jotego/jtbin",

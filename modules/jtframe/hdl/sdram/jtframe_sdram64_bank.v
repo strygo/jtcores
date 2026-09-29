@@ -58,7 +58,11 @@ module jtframe_sdram64_bank #(
     input               all_act,
 
     // row matching
+`ifdef JTFRAME_SDRAM_XL
+    output reg  [(AW==24?14:13)-1:0]  row, // AW==24: {chip, row}
+`else
     output reg  [12:0]  row,
+`endif
     input               match,
 
     // SDRAM interface
@@ -77,11 +81,26 @@ module jtframe_sdram64_bank #(
     // design (bank FSM -> grant mux -> A[12:11] DDIO register at the pin).
     // Exporting the 1-bit decode lets the top select it in parallel with
     // the address instead.  Same logic, one cycle, no protocol change.
+`ifdef JTFRAME_SDRAM_XL
+    // AW==24 (128 MiB module, two 64 MiB chips): the chip that cmd addresses,
+    // word address bit AW-1, valid with cmd. The top level turns it into
+    // SDRAM_nCS (chip 0 = nCS low, chip 1 = nCS high, inverted on the module).
+    // Constant 0 for every other AW.
+    output              chip,
+`endif
     output reg          act
 );
 
 localparam ROW=13,
            COW= AW==22 ? 9 : 10; // 9 for 32MB SDRAM, 10 for 64MB
+`ifdef JTFRAME_SDRAM_XL
+// 128 MiB module: two 64 MiB chips sharing every pin but the chip select.
+// Word address bit AW-1 selects the chip; the lower 23 bits split into row,
+// column and A[9] exactly as the 64 MiB (AW=23) case. Bank N of chip 0 and
+// bank N of chip 1 are two different SDRAM banks behind this one FSM, so the
+// open-row record carries the chip bit and every command carries it too.
+localparam XL = AW==24;
+`endif
 
 // states
 localparam IDLE    = 0,
@@ -115,7 +134,17 @@ initial begin
 end
 `endif
 */
+`ifdef JTFRAME_SDRAM_XL
+reg            actd, prechd_s;
+// PRECHARGE_ALL (the programmer): a precharge-all command only reaches the
+// addressed chip, so the "all banks precharged" flag is kept per chip and the
+// first access to the other chip precharges that chip too before activating.
+reg      [1:0] prechd_c;
+wire           prechd = (XL && PRECHARGE_ALL[0]) ? prechd_c[chip] : prechd_s;
+wire [(AW==24?14:13)-1:0] new_row; // what an ACTIVATE opens: {chip, row} for AW==24
+`else
 reg            actd, prechd;
+`endif
 wire [ROW-1:0] addr_row;
 reg  [STW-1:0] st, next_st, rot_st;
 reg            last_act;
@@ -127,6 +156,23 @@ reg            do_prech, do_act, do_read, written;
 reg            in_busy, in_busy64;
 
 // SDRAM pins
+`ifdef JTFRAME_SDRAM_XL
+assign ack      = st[READ],
+       dst      = st[DST] | (st[READ] & wr),
+       dbusy    = |{in_busy, do_read},
+       dbusy64  = READONLY ? dbusy : |{in_busy64, do_read},
+       rdy      = (written && !AUTOPRECH) ? st[READ] : st[RDY],
+       addr_row = XL ? addr[AW-3:AW-2-ROW] : (AW==22 ? addr[AW-1:AW-ROW] : addr[AW-2:AW-1-ROW]),
+       chip     = XL ? addr[AW-1] : 1'b0,
+       rd_wr    = rd | wr,
+       idle     = st[0];
+
+generate if( XL ) begin : g_xlrow
+    assign new_row = { addr[AW-1], addr_row };
+end else begin : g_row
+    assign new_row = addr_row;
+end endgenerate
+`else
 assign ack      = st[READ],
        dst      = st[DST] | (st[READ] & wr),
        dbusy    = |{in_busy, do_read},
@@ -135,6 +181,7 @@ assign ack      = st[READ],
        addr_row = AW==22 ? addr[AW-1:AW-ROW] : addr[AW-2:AW-1-ROW],
        rd_wr    = rd | wr,
        idle     = st[0];
+`endif
 
 always @(posedge clk) begin
     if( rst ) begin
@@ -217,6 +264,61 @@ generate
 endgenerate
 
 // module outputs
+`ifdef JTFRAME_SDRAM_XL
+always @(*) begin
+    wr_busy = do_read & wr;
+    cmd = do_prech ? CMD_PRECHARGE : (
+          do_act   ? CMD_ACTIVE    : (
+          do_read  ? (rd ? CMD_READ : CMD_WRITE ) : CMD_NOP ));
+    act = ~do_prech & do_act;   // == (cmd==CMD_ACTIVE), by the priority above
+    sdram_a[12:11] =  addr_row[12:11];
+    // column A[9] is the top word bit below the chip bit: addr[22] for AW==24, as addr[22] is for AW==23
+    sdram_a[10:0] = do_act ? addr_row[10:0] :
+            { do_read ? AUTOPRECH[0] : PRECHARGE_ALL[0], XL ? addr[AW-2] : addr[AW-1], addr[8:0]};
+end
+
+always @(posedge clk) begin
+    if( rst ) begin
+        prechd_s <= 0;
+        prechd_c <= 0;
+        actd     <= 0;
+        row      <= 0;
+        st       <= 1; // IDLE
+        last_act <= 0;
+        written  <= 0;
+    end else begin
+        st       <= next_st;
+        if( do_act ) begin
+            post_act <= 1;
+            last_act <= 1;
+        end else begin
+            last_act <= 0;
+            post_act <= last_act;
+        end
+
+        if( do_act ) begin
+            row     <= new_row;
+            prechd_s <= 0;
+            prechd_c[chip] <= 0;
+            actd    <= 1;
+        end
+
+        if( do_read ) written <= wr;
+            else if(st[0]) written<=0;
+
+        if( do_prech || (do_read && AUTOPRECH)) begin
+            prechd_s <= 1;
+            prechd_c[chip] <= 1;
+            actd   <= 0;
+        end
+        if( set_prech ) begin // the refresh slot precharged all banks of both chips
+            prechd_s <= 1;
+            prechd_c <= 2'b11;
+            actd     <= 0;
+        end
+    end
+end
+`else
 always @(*) begin
     wr_busy = do_read & wr;
     cmd = do_prech ? CMD_PRECHARGE : (
@@ -261,5 +363,6 @@ always @(posedge clk) begin
         end
     end
 end
+`endif
 
 endmodule

@@ -43,7 +43,12 @@ wire        main_rom_ok, main_ram_ok;
 wire        ppu1_cs, ppu2_cs, ppu_rstn, objcfg_cs;
 wire        raster;
 wire [19:0] rom1_addr, rom0_addr;
+`ifdef CPS2_OBJEXT
+wire [ 2:0] rom0_bank;
+wire        gfx_oram_ext, obj_ext;
+`else
 wire [ 1:0] rom0_bank;
+`endif
 wire [31:0] rom0_data, rom1_data;
 // Video RAM interface
 wire [17:1] vram_dma_addr;
@@ -225,6 +230,9 @@ end
 assign dip_flip = video_flip;
 
 jtcps1_video #(REGSIZE) u_video(
+`ifdef CPS2_OBJEXT
+    .oram_ext       ( gfx_oram_ext  ),
+`endif
     .rst            ( rst_video     ),
     .clk            ( clk_gfx       ),
     .clk_cpu        ( clk48         ),
@@ -532,6 +540,10 @@ jtcps1_sdram #(.CPS(2), .REGSIZE(REGSIZE)) u_sdram (
 `ifdef CPS2_PRG8
     .cps2_prog_ext ( prog_ext       ),
 `endif
+`ifdef CPS2_OBJEXT
+    .cps2_obj_ext  ( obj_ext        ),
+    .gfx_oram_ext  ( gfx_oram_ext   ),
+`endif
     .rst         ( rst_sdram     ),
     .clk         ( clk           ),
     .clk_gfx     ( clk_gfx       ),
@@ -544,7 +556,11 @@ jtcps1_sdram #(.CPS(2), .REGSIZE(REGSIZE)) u_sdram (
     .cfg_we      ( cfg_we        ),
 
     // ROM LOAD
+`ifdef CPS2_OBJEXT
+    .ioctl_addr  ( ioctl_addr[25:0] ), // 27-bit bus under JTFRAME_SDRAM_XL; images stay below 64 MiB
+`else
     .ioctl_addr  ( ioctl_addr    ),
+`endif
     .ioctl_dout  ( ioctl_dout    ),
     .ioctl_din   ( ioctl_din     ),
     .ioctl_wr    ( ioctl_wr      ),

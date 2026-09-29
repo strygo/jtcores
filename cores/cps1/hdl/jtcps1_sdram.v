@@ -20,7 +20,12 @@ module jtcps1_sdram #( parameter
            CPS     = 1,
            REGSIZE = 24,
            Z80_AW  = CPS==1 ? 16 : 19,
-           PCM_AW  = CPS==1 ? 18 : 23
+           PCM_AW  = CPS==1 ? 18 : 23,
+`ifdef CPS2_OBJEXT
+           SDRAMW  = 24 // 128 MiB module (JTFRAME_SDRAM_XL): object slice in bank 2 above 16 MiB
+`else
+           SDRAMW  = 23
+`endif
 ) (
     input           rst,
     input           clk,        // SDRAM clock (48/96)
@@ -39,7 +44,7 @@ module jtcps1_sdram #( parameter
     output  [ 7:0]  ioctl_din,
     input           ioctl_wr,
     input           ioctl_ram,
-    output  [22:0]  prog_addr,
+    output  [SDRAMW-1:0] prog_addr,
     output  [15:0]  prog_data,
     output  [ 1:0]  prog_mask,
     output  [ 1:0]  prog_ba,
@@ -69,6 +74,10 @@ module jtcps1_sdram #( parameter
     input    [21:0] main_rom_addr,
 `else
     input    [20:0] main_rom_addr,
+`endif
+`ifdef CPS2_OBJEXT
+    output          cps2_obj_ext,  // image declares the object extension slice
+    output          gfx_oram_ext,  // extension bit of the object entry the frame copy is reading
 `endif
     output   [15:0] main_rom_data,
 
@@ -123,7 +132,11 @@ module jtcps1_sdram #( parameter
     output          rom1_ok,
 
     input    [19:0] rom0_addr,
+`ifdef CPS2_OBJEXT
+    input    [ 2:0] rom0_bank,  // {extension bit, y[14:13]}
+`else
     input    [ 1:0] rom0_bank,
+`endif
     input    [19:0] rom1_addr,
 
     input           rom0_half,
@@ -144,10 +157,10 @@ module jtcps1_sdram #( parameter
     input             star1_cs,
 
     // Bank 0: allows R/W
-    output   [22:0] ba0_addr,
-    output   [22:0] ba1_addr,
-    output   [22:0] ba2_addr,
-    output   [22:0] ba3_addr,
+    output   [SDRAMW-1:0] ba0_addr,
+    output   [SDRAMW-1:0] ba1_addr,
+    output   [SDRAMW-1:0] ba2_addr,
+    output   [SDRAMW-1:0] ba3_addr,
     output   [ 3:0] ba_rd,
     output   [ 3:0] ba_wr,
     output   [15:0] ba0_din,
@@ -201,9 +214,9 @@ localparam EEPROM_AW=7, EEPROM_DW=8;
 localparam EEPROM_AW=6, EEPROM_DW=16;
 `endif
 
-(*keep*) wire [22:0] cps2_gfx0;
+(*keep*) wire [SDRAMW-1:0] cps2_gfx0;
 wire [21:0] gfx1_addr, gfx0_addr;
-wire [22:0] main_offset;
+wire [SDRAMW-1:0] main_offset;
 wire        ram_vram_cs;
 wire        ba2_rdy_gfx, ba2_ack_gfx;
 reg  [20:1] main_addr_x; // main addr modified for object bank access
@@ -253,6 +266,9 @@ jtcps1_prom_we #(
 `ifdef CPS2_PRG8
     .cps2_prog_ext   ( cps2_prog_ext ),
 `endif
+`ifdef CPS2_OBJEXT
+    .cps2_obj_ext    ( cps2_obj_ext  ),
+`endif
     .clk            ( clk           ),
     .ioctl_rom      ( ioctl_rom     ),
     .ioctl_addr     ( ioctl_addr    ),
@@ -275,8 +291,43 @@ jtcps1_prom_we #(
     .joymode        ( cps2_joymode  )
 );
 
+`ifdef CPS2_OBJEXT
+`ifndef JTFRAME_SDRAM_XL
+    // The slice needs 24-bit SDRAM word addresses (128 MiB module).
+    `CPS2_OBJEXT_requires_JTFRAME_SDRAM_XL
+`endif
+// Object extension bits: one per entry of each physical object RAM bank.
+// Written beside the CPU's object RAM writes (any word or byte of the entry
+// decides: CPU A14 set = alias window = 1, clear = normal window = 0) and
+// read by the frame copy at the entry it is copying, so the bit is latched
+// with the four words of the entry. Cleared during reset like the SDRAM
+// object table. Held at zero while the image does not declare the slice.
+reg  [10:0] objext_clr = 0;
+wire        objext_we  = rst | (main_oram_cs & ~main_rnw & ~&dsn);
+wire [10:0] objext_wa  = rst ? objext_clr : {main_ram_addr[15]^obank, main_ram_addr[12:3]};
+wire        objext_din = ~rst & main_ram_addr[14] & cps2_obj_ext;
+wire        objext_q;
+
+assign gfx_oram_ext = objext_q & cps2_obj_ext;
+
+always @(posedge clk) objext_clr <= rst ? objext_clr+1'd1 : 11'd0;
+
+jtframe_dual_ram #(.DW(1),.AW(11)) u_objext(
+    .clk0   ( clk           ),
+    .data0  ( objext_din    ),
+    .addr0  ( objext_wa     ),
+    .we0    ( objext_we     ),
+    .q0     (               ),
+    .clk1   ( clk_gfx       ),
+    .data1  ( 1'b0          ),
+    .addr1  ( { gfx_oram_addr[12], gfx_oram_addr[11:2] } ),
+    .we1    ( 1'b0          ),
+    .q1     ( objext_q      )
+);
+`endif
+
 jtframe_ram1_5slots #(
-    .SDRAMW      ( 23            ),
+    .SDRAMW      ( SDRAMW        ),
     .SLOT0_ERASE (  1            ),
     .SLOT0_AW    ( 20            ), // Main CPU RAM
     .SLOT0_DW    ( 16            ),
@@ -354,7 +405,7 @@ jtframe_ram1_5slots #(
 );
 
 jtframe_rom_1slot #(
-    .SDRAMW      ( 23            ),
+    .SDRAMW      ( SDRAMW        ),
     .SLOT0_AW    ( PCM_AW        ), // PCM
     .SLOT0_DW    (  8            )
 ) u_bank1 (
@@ -378,6 +429,22 @@ wire [ 1:0] objgfx_cs, objgfx_ok;
 wire [31:0] objgfx_dout0, objgfx_dout1;
 
 `ifdef CPS2
+`ifdef CPS2_OBJEXT
+    // Tile code bit 18 (the object extension bit) becomes SDRAM word address
+    // bit 23 of the same OBJ slot: with bank bits 00 that is the 8 MiB slice
+    // at bank 2 bytes 16..24 MiB (image graphics offsets 32..40 MiB). ext=1
+    // with bank bits != 00 is reserved for the 64 MiB library: it draws
+    // transparent without an SDRAM access. Capability off: stock mapping.
+    wire ext_sel   = rom0_bank[2] & cps2_obj_ext;
+    wire ext_blank = ext_sel & |rom0_bank[1:0];
+    assign objgfx_cs = {2{rom0_cs & ~ext_blank}} & { rom0_bank[0], ~rom0_bank[0] };
+    assign cps2_gfx0 = { ext_sel, rom0_bank[1], gfx0_addr };
+
+    always @(*) begin
+        rom0_ok   = ext_blank ? 1'b1 : (rom0_bank[0] ? objgfx_ok[1] : objgfx_ok[0]);
+        rom0_data = ext_blank ? 32'hffff_ffff : (rom0_bank[0] ? objgfx_dout1 : objgfx_dout0);
+    end
+`else
     assign objgfx_cs = {2{rom0_cs}} & { rom0_bank[0], ~rom0_bank[0] };
     assign cps2_gfx0 = { rom0_bank[1], gfx0_addr };
 
@@ -385,11 +452,12 @@ wire [31:0] objgfx_dout0, objgfx_dout1;
         rom0_ok   = rom0_bank[0] ? objgfx_ok[1] : objgfx_ok[0];
         rom0_data = rom0_bank[0] ? objgfx_dout1 : objgfx_dout0;
     end
+`endif
 
     jtframe_rom_1slot #(
-        .SDRAMW      ( 23            ),
+        .SDRAMW      ( SDRAMW        ),
         // Slot 0: Obj
-        .SLOT0_AW    ( 23            ),
+        .SLOT0_AW    ( SDRAMW        ),
         .SLOT0_DW    ( 32            ),
         .SLOT0_DOUBLE( 1             ),
         .SLOT0_LATCH ( OBJ_LATCH     )
@@ -415,7 +483,7 @@ wire [31:0] objgfx_dout0, objgfx_dout1;
         rom0_ok   = objgfx_ok[1];
         rom0_data = objgfx_dout1;
     end
-    assign cps2_gfx0 = { 1'b0, gfx0_addr };
+    assign cps2_gfx0 = { {SDRAMW-22{1'b0}}, gfx0_addr };
     assign ba_rd[2] = 0;
     assign ba2_addr = 0;
 `endif
@@ -425,9 +493,9 @@ wire [21:0] gfx_star0 = { 1'b0, star_bank, 5'd0, star0_addr, 2'b00 },
             gfx_star1 = { 1'b0, star_bank, 5'd0, star1_addr, 2'b10 };
 
 jtframe_rom_4slots #(
-    .SDRAMW      ( 23            ),
+    .SDRAMW      ( SDRAMW        ),
     // Slot 0: Obj
-    .SLOT0_AW    ( 23            ),
+    .SLOT0_AW    ( SDRAMW        ),
     .SLOT0_DW    ( 32            ),
     .SLOT0_OFFSET( ZERO_OFFSET   ),
     .SLOT0_LATCH ( OBJ_LATCH     ),

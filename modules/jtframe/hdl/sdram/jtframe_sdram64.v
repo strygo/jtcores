@@ -134,8 +134,19 @@ wire        all_act, rfshing, rfsh_br, noreq, help;
 reg         all_dbusy, all_dbusy64;
 reg   [3:0] bg, cmd;
 reg  [14:0] prio_lfsr;
+`ifdef JTFRAME_SDRAM_XL
+wire [12:0] bx0_a, bx1_a, bx2_a, bx3_a, init_a, next_a, rfsh_a;
+wire [(AW==24?14:13)-1:0] ba0_row, ba1_row, ba2_row, ba3_row; // AW==24: {chip, row}
+// 128 MiB module (AW==24): two 64 MiB chips behind the single SDRAM_nCS pin,
+// which the module inverts for the second chip. Every command source names
+// the chip it addresses in parallel with its command; the grant mux selects
+// it like the command and the pair is registered together.
+wire        bx0_chip, bx1_chip, bx2_chip, bx3_chip, pre_chip, init_chip, rfsh_chip, next_chip;
+reg         ncs_r;
+`else
 wire [12:0] bx0_a, bx1_a, bx2_a, bx3_a, init_a, next_a, rfsh_a,
             ba0_row, ba1_row, ba2_row, ba3_row;
+`endif
 wire [ 1:0] next_ba, prio;
 wire [15:0] din;
 
@@ -156,7 +167,17 @@ reg  [ 1:0] dqm;
 wire [ 1:0] mask_mux;
 wire        all_dqm, prog_busy, pre_br;
 
+`ifdef JTFRAME_SDRAM_XL
+// SDRAM_nCS on the 128 MiB module (SDRAM XS-DS): the header pin drives U1's
+// CS# directly and U2's CS# through an inverter, so nCS low addresses chip 0
+// (word address bit 23 = 0) and nCS high addresses chip 1. Exactly one chip
+// decodes every command; NOP is RAS/CAS/WE high at either level and
+// CMD_INHIBIT must never be issued (it would be a LOAD MODE on the other chip).
+assign {sdram_nras, sdram_ncas, sdram_nwe } = cmd[2:0];
+assign sdram_ncs = ncs_r;
+`else
 assign {sdram_ncs, sdram_nras, sdram_ncas, sdram_nwe } = cmd;
+`endif
 assign {sdram_dqmh, sdram_dqml} = MISTER ? sdram_a[12:11] : dqm;
 assign sdram_cke = 1;
 assign all_act     = |post_act;
@@ -196,6 +217,22 @@ always @(posedge clk) if( next_is_act != (next_cmd==CMD_ACTIVE) ) begin
 end
 `endif
 
+`ifdef JTFRAME_SDRAM_XL
+assign next_chip =      init ? init_chip : (
+                      rfshing? rfsh_chip : (
+                      prog_en? pre_chip  : (
+                       bg[3] ? bx3_chip  : (
+                       bg[2] ? bx2_chip  : (
+                       bg[1] ? bx1_chip  :
+                               bx0_chip  )))));
+`ifdef SIMULATION
+always @(posedge clk) if( AW==24 && cmd[3] ) begin
+    $display("%m ASSERT FAIL: CMD_INHIBIT is not a NOP on the dual-chip module");
+    $finish;
+end
+`endif
+`endif
+
 assign prio     = prio_lfsr[1:0];
 assign mask_mux = prog_en ? prog_dsn :
                   (bg[3] && BA3_WEN) ? ba3_dsn :
@@ -233,6 +270,9 @@ always @(posedge clk) begin
     dok      <= ba_dok;
     dout     <= sdram_dq;
     cmd      <= next_cmd;
+`ifdef JTFRAME_SDRAM_XL
+    ncs_r    <= next_cmd[3] ^ next_chip;
+`endif
 
     // prog signals
     prog_dst <= pre_dst;
@@ -296,6 +336,34 @@ jtframe_sdram64_latch #(.LATCH(LATCH),.AW(AW)) u_latch(
     .noreq      ( noreq     )
 );
 
+`ifdef JTFRAME_SDRAM_XL
+// AW==24: the initialization sequence runs once per chip and every refresh
+// slot precharges and refreshes both chips
+jtframe_sdram64_init #(.HF(HF),.BURSTLEN(BURSTLEN),.XL(AW==24)) u_init(
+    .rst        ( rst       ),
+    .clk        ( clk       ),
+
+    .init       ( init      ),
+    .chip       ( init_chip ),
+    .cmd        ( init_cmd  ),
+    .sdram_a    ( init_a    )
+);
+
+jtframe_sdram64_rfsh #(.HF(HF),.RFSHCNT(RFSHCNT),.BOTH(AW==24)) u_rfsh(
+    .rst        ( rfsh_rst  ),
+    .clk        ( clk       ),
+
+    .start      ( rfsh      ),
+    .br         ( rfsh_br   ),
+    .bg         ( rfsh_bg   ),
+    .noreq      ( noreq     ),
+    .rfshing    ( rfshing   ),
+    .chip       ( rfsh_chip ),
+    .cmd        ( rfsh_cmd  ),
+    .help       ( help      ),
+    .sdram_a    ( rfsh_a    )
+);
+`else
 jtframe_sdram64_init #(.HF(HF),.BURSTLEN(BURSTLEN)) u_init(
     .rst        ( rst       ),
     .clk        ( clk       ),
@@ -320,6 +388,7 @@ jtframe_sdram64_rfsh #(.HF(HF),.RFSHCNT(RFSHCNT)) u_rfsh(
     .help       ( help      ),
     .sdram_a    ( rfsh_a    )
 );
+`endif
 
 jtframe_sdram64_bank #(
     .AW       ( AW      ),
@@ -369,6 +438,9 @@ jtframe_sdram64_bank #(
     .bg         ( prog_bg    ), // bus grant
 
     .sdram_a    ( pre_a      ),
+`ifdef JTFRAME_SDRAM_XL
+    .chip       ( pre_chip   ),
+`endif
     .cmd        ( pre_cmd    )
 );
 
@@ -417,6 +489,9 @@ jtframe_sdram64_bank #(
     .bg         ( bg[0]      ), // bus grant
 
     .sdram_a    ( bx0_a      ),
+`ifdef JTFRAME_SDRAM_XL
+    .chip       ( bx0_chip   ),
+`endif
     .cmd        ( bx0_cmd    ),
     .act        ( bx0_act    )
 );
@@ -465,6 +540,9 @@ jtframe_sdram64_bank #(
     .bg         ( bg[1]      ), // bus grant
 
     .sdram_a    ( bx1_a      ),
+`ifdef JTFRAME_SDRAM_XL
+    .chip       ( bx1_chip   ),
+`endif
     .cmd        ( bx1_cmd    ),
     .act        ( bx1_act    )
 );
@@ -513,6 +591,9 @@ jtframe_sdram64_bank #(
     .bg         ( bg[2]      ), // bus grant
 
     .sdram_a    ( bx2_a      ),
+`ifdef JTFRAME_SDRAM_XL
+    .chip       ( bx2_chip   ),
+`endif
     .cmd        ( bx2_cmd    ),
     .act        ( bx2_act    )
 );
@@ -561,6 +642,9 @@ jtframe_sdram64_bank #(
     .bg         ( bg[3]      ), // bus grant
 
     .sdram_a    ( bx3_a      ),
+`ifdef JTFRAME_SDRAM_XL
+    .chip       ( bx3_chip   ),
+`endif
     .cmd        ( bx3_cmd    ),
     .act        ( bx3_act    )
 );

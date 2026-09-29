@@ -15,7 +15,7 @@ wire [17:1] ram_addr;
 wire [15:0] rom_data, ram_data, cpu_dout;
 wire ram_cs, vram_cs, oram_cs, udswn, ldswn, obank;
 wire [15:0] oram_base;
-wire [22:0] ba0_addr, prog_addr;
+wire [23:0] ba0_addr, prog_addr; // 24-bit SDRAM word addresses (CPS2_OBJEXT / JTFRAME_SDRAM_XL); bank 0 stays below 16 MiB
 wire [3:0] ba_rd, ba_wr;
 wire [15:0] ba0_din, prog_data;
 wire [1:0] ba0_dsn, prog_ba, prog_mask;
@@ -24,7 +24,8 @@ reg [3:0] ba_ack=0, ba_dst=0, ba_rdy=0;
 reg [15:0] data_read=0;
 reg [15:0] mem[0:8388607];
 integer tx=0, beat=0, latency=0, clocks=0, reads=0, ext_reads=0, passes=0;
-reg [22:0] tx_addr;
+reg [23:0] tx_addr;
+integer hold_addr, hold_idx;
 reg tx_write;
 reg [15:0] tx_data;
 reg [1:0] tx_mask;
@@ -96,7 +97,7 @@ jtcps1_sdram #(.CPS(2)) sdram(
     .dsn({udswn,ldswn}), .main_dout(cpu_dout), .main_rnw(rnw), .main_ram_ok(ram_ok),
     .main_ram_addr(ram_addr), .vram_dma_addr(17'd0), .main_ram_data(ram_data),
     .snd_cs(1'b0), .pcm_cs(1'b0), .snd_addr(19'd0), .pcm_addr(23'd0),
-    .rom0_cs(1'b0), .rom1_cs(1'b0), .rom0_addr(20'd0), .rom0_bank(2'd0),
+    .rom0_cs(1'b0), .rom1_cs(1'b0), .rom0_addr(20'd0), .rom0_bank(3'd0),
     .rom1_addr(20'd0), .rom0_half(1'b0), .rom1_half(1'b0),
     .star_bank(1'b0), .star0_addr(13'd0), .star0_cs(1'b0), .star1_addr(13'd0), .star1_cs(1'b0),
     .ba0_addr(ba0_addr), .ba_rd(ba_rd), .ba_wr(ba_wr), .ba0_din(ba0_din), .ba0_dsn(ba0_dsn),
@@ -113,6 +114,7 @@ always @(negedge clk) begin
     else case(tx)
         0: if(ba_rd[0] || ba_wr[0]) begin
             tx_addr=ba0_addr; tx_write=ba_wr[0]; tx_data=ba0_din; tx_mask=ba0_dsn;
+            if(tx_addr[23]) $fatal(1,"bank 0 access above 16 MiB: %h",tx_addr);
             latency=2+(reads%5); tx=1;
         end
         1: if(latency!=0) latency=latency-1;
@@ -121,18 +123,18 @@ always @(negedge clk) begin
             if(tx_write) begin
                 if(!tx_mask[1]) mem[tx_addr][15:8]=tx_data[15:8];
                 if(!tx_mask[0]) mem[tx_addr][7:0]=tx_data[7:0];
-                if(tx_addr==23'h300001 && tx_data==16'h1234 && !hold_rst && !irq_sent) begin
+                if(tx_addr==24'h300001 && tx_data==16'h1234 && !hold_rst && !irq_sent) begin
                     lvbl=0; irq_sent=1;
                 end
                 data_read=mem[tx_addr]; ba_dst[0]=1; ba_rdy[0]=1; tx=3;
             end else begin
-                data_read=mem[(tx_addr & 23'h7ffffc)+((tx_addr+beat)&3)];
+                data_read=mem[(tx_addr & 24'h7ffffc)+((tx_addr+beat)&3)];
                 ba_dst[0]=(beat==0);
                 ba_rdy[0]=(beat==3);
                 if(beat==3) begin
                     reads=reads+1;
-                    if(tx_addr>=23'h400000) ext_reads=ext_reads+1;
-                    if(tx_addr>=23'h1fd880 && tx_addr<23'h200000) window_reads=window_reads+1; // bytes 3fb100..3fffff
+                    if(tx_addr>=24'h400000) ext_reads=ext_reads+1;
+                    if(tx_addr>=24'h1fd880 && tx_addr<24'h200000) window_reads=window_reads+1; // bytes 3fb100..3fffff
                     tx=3;
                 end else beat=beat+1;
             end
@@ -165,6 +167,14 @@ initial begin
         $readmemh("key.hex",rom_key);
         if(!$value$plusargs("ENTRY=%h",reset_entry) || !$value$plusargs("OPCODE=%h",entry_opcode))
             $fatal(1,"missing verified original entry identity");
+        // A hook that holds a picture on screen keeps its hold count as a long
+        // word in the extension window; the RTL run shortens only that count.
+        if($value$plusargs("HOLD_ADDR=%h",hold_addr)) begin
+            if(hold_addr<'ha00000 || hold_addr>='hc00000 || hold_addr[0]) $fatal(1,"hold count outside the extension window");
+            hold_idx='h400000 | ((hold_addr-'ha00000)>>1);
+            mem[hold_idx]=16'h0000;
+            mem[hold_idx+1]=16'h0002;
+        end
     end else begin
         $readmemh("program.hex",mem);
         for(i=0;i<20;i=i+1) rom_key[i]=8'hff;

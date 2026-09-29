@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        profile: [baseline, program]
+        profile: [baseline, program, objext]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -45,6 +45,8 @@ jobs:
         run: |
           extra=''
           if [ "$PROFILE" = program ]; then extra='-d CPS2_PRG8'; fi
+          # Object extension slice: 24-bit SDRAM addressing (128 MiB module) replaces the 64 MiB macro.
+          if [ "$PROFILE" = objext ]; then extra='-d CPS2_PRG8 -d CPS2_OBJEXT -d JTFRAME_SDRAM_XL -u JTFRAME_SDRAM_LARGE'; fi
           docker run --rm --platform linux/amd64 --network host \
             -e CORE=cps2 -e SKIP_STOCK=1 -e SEED="$SEED" -e TRIALS="$TRIALS" \
             -e JTCORE_EXTRA="$extra" -v "$PWD":/jtcores \

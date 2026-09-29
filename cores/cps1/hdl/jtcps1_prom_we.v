@@ -31,7 +31,11 @@ parameter [ 5:0] CFG_BYTE   =6'd39  // location of the byte with encoder informa
     input      [ 7:0]    ioctl_dout,
     input                ioctl_wr,
     input                ioctl_ram,
+`ifdef CPS2_OBJEXT
+    output reg [23:0]    prog_addr, // 128 MiB module: bank 2 holds the object slice above 16 MiB
+`else
     output reg [22:0]    prog_addr,
+`endif
     output     [15:0]    prog_data,
     output reg [ 1:0]    prog_mask, // active low
     output reg [ 1:0]    prog_ba,
@@ -47,6 +51,9 @@ parameter [ 5:0] CFG_BYTE   =6'd39  // location of the byte with encoder informa
     output reg [ 1:0]    joymode
 `ifdef CPS2_PRG8
     ,output reg         cps2_prog_ext = 1'b0
+`endif
+`ifdef CPS2_OBJEXT
+    ,output reg         cps2_obj_ext = 1'b0
 `endif
 );
 
@@ -107,16 +114,33 @@ always @(posedge clk) begin
     if (ioctl_wr && ioctl_rom && !ioctl_ram) begin
         if (ioctl_addr==0) begin
             cps2_prog_ext <= 0;
+`ifdef CPS2_OBJEXT
+            cps2_obj_ext  <= 0;
+`endif
             ext_header_step <= 0;
         end else if (ioctl_addr==12) begin
             cps2_prog_ext <= 0;
+`ifdef CPS2_OBJEXT
+            cps2_obj_ext  <= 0;
+`endif
             ext_header_step <= ioctl_dout==8'h43 ? 1 : 0;
         end else if (ioctl_addr==13) begin
             ext_header_step <= ext_header_step==1 && ioctl_dout==8'h32 ? 2 : 0;
         end else if (ioctl_addr==14) begin
             ext_header_step <= ext_header_step==2 && ioctl_dout==8'h01 ? 3 : 0;
         end else if (ioctl_addr==15) begin
+`ifdef CPS2_OBJEXT
+            // Byte 15 is a capability mask: 01 = program window, 03 = program
+            // window plus the 8 MiB object extension slice. 03 additionally
+            // requires a graphics region of exactly 40 MiB (32 MiB library +
+            // slice). Any other value or an incomplete marker fails closed.
+            cps2_prog_ext <= ext_header_step==3 && snd_start==16'h2000 &&
+                             (ioctl_dout==8'h01 || (ioctl_dout==8'h03 && gfx_slice_ok));
+            cps2_obj_ext  <= ext_header_step==3 && snd_start==16'h2000 &&
+                             ioctl_dout==8'h03 && gfx_slice_ok;
+`else
             cps2_prog_ext <= ext_header_step==3 && ioctl_dout==8'h01 && snd_start==16'h2000;
+`endif
             ext_header_step <= 0;
         end
     end
@@ -126,6 +150,22 @@ wire cpu_allowed = !is_cpu || (cps2_prog_ext ? bulk_addr<26'h0800000 : bulk_addr
 `else
 wire [22:0] cpu_phys = cpu_addr[23:1];
 wire cpu_allowed = 1'b1;
+`endif
+
+`ifdef CPS2_OBJEXT
+// Object extension slice: graphics region byte offsets 32..40 MiB keep the
+// bank-2/bit-22 rule of the 32 MiB library and set SDRAM word address bit 23,
+// so they land in bank 2 bytes 16..24 MiB, where the OBJ slot reads tile code
+// bit 18 (ext=1, bank bits 00). Region starts are 16-bit KiB counts, so the
+// 40 MiB region still fits the stock header; without the capability the
+// bytes above 32 MiB are dropped instead of overwriting the library.
+wire        gfx_slice_ok  = (qsnd_start - gfx_start) == 16'ha000;
+wire        gfx_slice     = cps2_obj_ext && gfx_addr[25];
+wire [23:0] gfx_phys      = {gfx_slice, gfx_addr[24], gfx_addr[22:1]};
+wire        gfx_allowed   = !is_gfx || !gfx_addr[25] || cps2_obj_ext;
+`else
+wire [22:0] gfx_phys      = {gfx_addr[24], gfx_addr[22:1]};
+wire        gfx_allowed   = 1'b1;
 `endif
 
 reg       decrypt, pang3, pang3_bit;
@@ -171,7 +211,7 @@ always @(posedge clk) begin
         prog_addr <= is_cpu ? cpu_phys + CPU_OFFSET : (
                      is_snd ?  snd_addr[23:1] + SND_OFFSET : (
                      is_oki ?  pcm_addr[23:1] + PCM_OFFSET :
-                     is_gfx ?  {gfx_addr[24],gfx_addr[22:1]} + GFX_OFFSET : {10'd0, bulk_addr[12:0]}));
+                     is_gfx ?  gfx_phys + GFX_OFFSET : {10'd0, bulk_addr[12:0]}));
         prog_ba   <= (is_cpu||is_snd) ? 2'd0 : ( is_gfx ? gfx_bank : 2'd1 );
         if( is_kabuki )
             kabuki_sr <= 2'b11;
@@ -192,7 +232,7 @@ always @(posedge clk) begin
                     {decrypt, pang3_bit} <= ioctl_dout[7:6];
             end else if(ioctl_addr>=FULL_HEADER) begin
                 cfg_we    <= 1'b0;
-                prog_we   <= ~is_qsnd && cpu_allowed;
+                prog_we   <= ~is_qsnd && cpu_allowed && gfx_allowed;
                 prom_we   <=  is_qsnd;
             end else if( ioctl_addr[5:0] == JOY_BYTE ) begin
                 joymode <= ioctl_dout[1:0]; // only CPS2
