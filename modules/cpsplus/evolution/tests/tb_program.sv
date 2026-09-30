@@ -37,6 +37,31 @@ integer decode_checks=0;
 integer bound_page='h3ff, window_reads=0;
 reg inwindow_mode=0;
 string program_file;
+// The QSound side as the 68K sees it: the Z80 grants its bus one CPU clock
+// after the request, reads return 0xff (the driver's acknowledge, so a hook's
+// ack polls end at once) except the driver's ready mark 0x77 at Z80 0xcfff,
+// and every write is logged. Writes to the
+// command record (Z80 0xc000/0xc001) followed by a 0x00 handshake at 0xc00f
+// are the posted sound commands; +QSCMDS=<hex> names the expected list.
+reg qs_busakn=1, qs_seen=0;
+wire [7:0] qs_din = main.main2qs_addr[16:1]==16'hcfff ? 8'h77 : 8'hff;
+reg [7:0] qs_hi=0, qs_lo=0;
+reg [15:0] qs_cmds [0:63];
+integer qs_posted=0, qs_writes=0;
+string qs_expect;
+always @(posedge clk_cpu) begin
+    qs_busakn <= ~main.main2qs_cs;
+    if(!main.main2qs_cs) qs_seen<=0;
+    else if(!rnw && !ldswn && !qs_seen) begin
+        qs_seen<=1; qs_writes=qs_writes+1;
+        case(main.main2qs_addr[16:1])
+            16'hc000: qs_hi=cpu_dout[7:0];
+            16'hc001: qs_lo=cpu_dout[7:0];
+            16'hc00f: if(cpu_dout[7:0]==8'h00 && qs_posted<64) begin qs_cmds[qs_posted]={qs_hi,qs_lo}; qs_posted=qs_posted+1; end
+            default: ;
+        endcase
+    end
+end
 
 task check_decode(input integer byte_address);
 reg expected_rom, expected_ext;
@@ -80,7 +105,7 @@ jtcps2_main main(
     .oram_base(oram_base), .ram_data(ram_data), .ram_ok(ram_ok),
     .rom_cs(rom_cs), .rom_addr(rom_addr), .rom_data(rom_data), .rom_ok(rom_ok),
     .dip_test(1'b1), .dip_pause(1'b1), .eeprom_sdo(1'b1),
-    .main2qs_din(8'hff), .main2qs_busakn(1'b1), .main2qs_waitn(1'b1),
+    .main2qs_din(qs_din), .main2qs_busakn(qs_busakn), .main2qs_waitn(1'b1),
     .volume(13'd0), .debug_bus(8'd0)
 );
 jtcps1_sdram #(.CPS(2)) sdram(
@@ -190,6 +215,14 @@ initial begin
     if(hook_mode) begin
         wait(!hold_rst && main.A==reset_entry[23:1] && main.FC==6 && rom_ok && main.rom_ok2 && main.rom_dec==entry_opcode[15:0]);
         if(ext_reads<4) $fatal(1,"game hook never traversed extension");
+        if($value$plusargs("QSCMDS=%s",qs_expect)) begin : qscmds
+            integer n;
+            n = qs_expect.len()/4;
+            if(qs_posted!=n) $fatal(1,"hook posted %0d sound commands, expected %0d (%0d QSound writes)",qs_posted,n,qs_writes);
+            for(i=0;i<n;i=i+1) if(qs_cmds[i]!==16'(qs_expect.substr(4*i,4*i+3).atohex()))
+                $fatal(1,"sound command %0d was %h, expected %s",i,qs_cmds[i],qs_expect.substr(4*i,4*i+3));
+            $display("PASS game hook sound: %0d commands posted at the QSound port in the expected order (%s), %0d QSound writes",n,qs_expect,qs_writes);
+        end else if(qs_posted!=0) $fatal(1,"hook posted %0d unexpected sound commands",qs_posted);
         if(inwindow_mode && window_reads<1) $fatal(1,"in-window hook never fetched above the key bound");
         if(inwindow_mode)
             $display("PASS game hook: encrypted reset vector executes plaintext code above the key bound inside the original window, then the extension, and returns to original encrypted entry %h; full-game boot remains untested",reset_entry);

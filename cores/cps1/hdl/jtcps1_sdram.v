@@ -20,7 +20,11 @@ module jtcps1_sdram #( parameter
            CPS     = 1,
            REGSIZE = 24,
            Z80_AW  = CPS==1 ? 16 : 19,
+`ifdef CPS2_QSND24
+           PCM_AW  = CPS==1 ? 18 : 24, // flat 24-bit QSound: 16 MiB sample library in bank 1
+`else
            PCM_AW  = CPS==1 ? 18 : 23,
+`endif
 `ifdef CPS2_OBJEXT
            SDRAMW  = 24 // 128 MiB module (JTFRAME_SDRAM_XL): object slice in bank 2 above 16 MiB
 `else
@@ -39,7 +43,11 @@ module jtcps1_sdram #( parameter
     output          cfg_we,
 
     // ROM LOAD
+`ifdef CPS2_QSND24
+    input   [26:0]  ioctl_addr,    // JTFRAME_SDRAM_XL download bus: images above 64 MiB
+`else
     input   [25:0]  ioctl_addr,
+`endif
     input   [ 7:0]  ioctl_dout,
     output  [ 7:0]  ioctl_din,
     input           ioctl_wr,
@@ -256,6 +264,22 @@ always @(*) begin
     `endif
 end
 
+`ifdef CPS2_QSND24
+`ifndef CPS2_OBJEXT
+    // PCM_AW = 24 needs 24-bit SDRAM word addresses (jtframe_romrq pads the
+    // slot address to SDRAMW bits) and a 64.25 MiB image needs the 27-bit
+    // download bus: both come with the objext profile (JTFRAME_SDRAM_XL).
+    `CPS2_QSND24_requires_CPS2_OBJEXT
+`endif
+// Flat 24-bit QSound sample address. The DSP latches all eight bank bits;
+// the image header decides whether they reach SDRAM: with the capability
+// (marker bit 04) bank bytes 0x80..0xff read library bytes 8..16 MiB, in
+// bank 1 bytes 8..16 MiB (chip 0: word address bit 23 stays 0); without it
+// bit 23 is cleared, the stock mirror of the 8 MiB library.
+wire        cps2_qsnd_ext;
+wire [23:0] pcm_flat = { pcm_addr[23] & cps2_qsnd_ext, pcm_addr[22:0] };
+`endif
+
 jtcps1_prom_we #(
     .CPS        ( CPS           ),
     .REGSIZE    ( REGSIZE       ),
@@ -268,6 +292,9 @@ jtcps1_prom_we #(
 `endif
 `ifdef CPS2_OBJEXT
     .cps2_obj_ext    ( cps2_obj_ext  ),
+`endif
+`ifdef CPS2_QSND24
+    .cps2_qsnd_ext   ( cps2_qsnd_ext ),
 `endif
     .clk            ( clk           ),
     .ioctl_rom      ( ioctl_rom     ),
@@ -414,7 +441,11 @@ jtframe_rom_1slot #(
 
     .slot0_cs    ( pcm_cs        ),
     .slot0_ok    ( pcm_ok        ),
+`ifdef CPS2_QSND24
+    .slot0_addr  ( pcm_flat      ),
+`else
     .slot0_addr  ( pcm_addr      ),
+`endif
     .slot0_dout  ( pcm_data      ),
 
     .sdram_addr  ( ba1_addr      ),

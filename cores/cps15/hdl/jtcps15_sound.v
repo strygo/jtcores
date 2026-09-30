@@ -44,7 +44,15 @@ module jtcps15_sound(
     input             rom_ok,
 
     // QSound sample ROM
+`ifdef CPS2_QSND24
+    // Flat 24-bit sample address: the DSP's bank byte is its external address
+    // bits 7:0 (the Z80 driver sends 0x8000|bank), so banks 0x80..0xff reach
+    // the upper 8 MiB. jtcps1_sdram clears bit 23 while the image does not
+    // declare the flat library, which is the stock 8 MiB mirror.
+    output reg [23:0] qsnd_addr, // max 16 MB.
+`else
     output reg [22:0] qsnd_addr, // max 8 MB.
+`endif
     output            qsnd_cs,
     input      [ 7:0] qsnd_data,
     input             qsnd_ok,
@@ -321,7 +329,11 @@ reg        left_done, right_done;
 always @(posedge clk96, posedge rst) begin
     if ( rst ) begin
         audio_ws   <= 0;
+`ifdef CPS2_QSND24
+        qsnd_addr  <= 24'd0;
+`else
         qsnd_addr  <= 23'd0;
+`endif
         base_sample<= 0;
         dsp_dsel96 <= 0;
         pre_l      <= 16'd0;
@@ -363,7 +375,11 @@ always @(posedge clk96, posedge rst) begin
             qsnd_addr[15:0] <= dsp_pbus_out;
         end
         if( dsp_ab[15] && dsp_cen_cko ) begin
+`ifdef CPS2_QSND24
+            qsnd_addr[23:16] <= dsp_ab[7:0]; // bank byte, all eight bits
+`else
             qsnd_addr[22:16] <= dsp_ab[6:0];
+`endif
         end
     end
 end
@@ -428,7 +444,11 @@ initial begin
     main_din   = 8'hff;
     rom_addr   = 19'd0;
     rom_cs     = 1'b0;
+`ifdef CPS2_QSND24
+    qsnd_addr  = 24'd0;
+`else
     qsnd_addr  = 23'd0;
+`endif
 end
 `endif
 

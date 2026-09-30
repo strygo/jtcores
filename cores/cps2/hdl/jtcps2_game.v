@@ -28,7 +28,11 @@ wire        snd_cs, qsnd_cs,
 wire        obank;  // OBJ bank
 wire [15:0] oram_base;
 wire [18:0] snd_addr;
+`ifdef CPS2_QSND24
+wire [23:0] qsnd_addr; // flat 24-bit QSound sample address (16 MiB library)
+`else
 wire [22:0] qsnd_addr;
+`endif
 wire        prog_qsnd;
 wire [ 7:0] snd_data, qsnd_data;
 wire [17:1] ram_addr;
@@ -556,7 +560,9 @@ jtcps1_sdram #(.CPS(2), .REGSIZE(REGSIZE)) u_sdram (
     .cfg_we      ( cfg_we        ),
 
     // ROM LOAD
-`ifdef CPS2_OBJEXT
+`ifdef CPS2_QSND24
+    .ioctl_addr  ( ioctl_addr    ), // all 27 bits: a flat QSound image with the object slice is 64.25 MiB
+`elsif CPS2_OBJEXT
     .ioctl_addr  ( ioctl_addr[25:0] ), // 27-bit bus under JTFRAME_SDRAM_XL; images stay below 64 MiB
 `else
     .ioctl_addr  ( ioctl_addr    ),

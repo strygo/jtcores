@@ -27,7 +27,11 @@ parameter [ 5:0] CFG_BYTE   =6'd39  // location of the byte with encoder informa
 )(
     input                clk,
     input                ioctl_rom,
+`ifdef CPS2_QSND24
+    input      [26:0]    ioctl_addr,    // max 128 MB (JTFRAME_SDRAM_XL): the flat QSound image is 64.25 MiB
+`else
     input      [25:0]    ioctl_addr,    // max 64 MB
+`endif
     input      [ 7:0]    ioctl_dout,
     input                ioctl_wr,
     input                ioctl_ram,
@@ -54,6 +58,9 @@ parameter [ 5:0] CFG_BYTE   =6'd39  // location of the byte with encoder informa
 `endif
 `ifdef CPS2_OBJEXT
     ,output reg         cps2_obj_ext = 1'b0
+`endif
+`ifdef CPS2_QSND24
+    ,output reg         cps2_qsnd_ext = 1'b0
 `endif
 );
 
@@ -89,6 +96,37 @@ assign kabuki_we  = kabuki_sr[0];
 assign kabuki_we  = 0;
 `endif
 
+`ifdef CPS2_QSND24
+// Flat QSound (marker bit 04) orders the image CPU, Z80, samples, DSP
+// firmware, graphics: the four 16-bit KiB start fields keep their meaning and
+// stay below 64 MiB, and graphics become the open-ended top region. The
+// download address is therefore 27 bits wide and every region compare uses
+// all of it, so an address above 64 MiB never aliases a low region. Without
+// the capability the regions are the stock ones (firmware open-ended on top).
+wire [26:0] bulk_addr = ioctl_addr - FULL_HEADER; // the header is excluded
+wire [26:0] cpu_addr  = bulk_addr ; // the header is excluded
+wire [26:0] snd_addr  = bulk_addr - { snd_start[15:0], 10'd0 };
+wire [26:0] pcm_addr  = bulk_addr - { pcm_start[15:0], 10'd0 };
+wire [26:0] gfx_off   = bulk_addr - { gfx_start, 10'd0 };
+wire [16:0] bulk_kib  = bulk_addr[26:10];
+reg  [25:0] gfx_addr;
+reg  [ 1:0] gfx_bank;
+
+wire is_cps    = ioctl_addr > 7 && ioctl_addr < (REGSIZE+START_HEADER);
+wire is_kabuki = ioctl_addr >= KABUKI_HEADER && ioctl_addr < KABUKI_END;
+wire is_cps2   = ioctl_addr >= CPS2_KEYS && ioctl_addr < CPS2_END;
+wire is_cpu    = bulk_kib < {1'b0, snd_start};
+wire is_snd    = bulk_kib < {1'b0, pcm_start}  && bulk_kib >= {1'b0, snd_start};
+wire is_oki    = bulk_kib < {1'b0, cps2_qsnd_ext ? qsnd_start : gfx_start} && bulk_kib >= {1'b0, pcm_start};
+wire is_gfx    = bulk_kib >= {1'b0, gfx_start} && (cps2_qsnd_ext || bulk_kib < {1'b0, qsnd_start});
+wire is_qsnd   = ioctl_addr >= FULL_HEADER && bulk_kib >= {1'b0, qsnd_start} && // Q-Sound ROM
+                 (!cps2_qsnd_ext || bulk_kib < {1'b0, gfx_start});
+// The flat order: exactly 16 MiB of samples, then exactly 8 KiB of DSP
+// firmware on an 8 KiB boundary (its bytes address the DSP ROM with
+// bulk_addr[12:0]), then graphics.
+wire qsnd_flat_ok = (qsnd_start - pcm_start) == 16'h4000 && (gfx_start - qsnd_start) == 16'd8 &&
+                    qsnd_start[2:0] == 3'd0;
+`else
 wire [25:0] bulk_addr = ioctl_addr - FULL_HEADER; // the header is excluded
 wire [25:0] cpu_addr  = bulk_addr ; // the header is excluded
 wire [25:0] snd_addr  = bulk_addr - { snd_start[15:0], 10'd0 };
@@ -104,12 +142,19 @@ wire is_snd    = bulk_addr[25:10] < pcm_start  && bulk_addr[25:10] >=snd_start;
 wire is_oki    = bulk_addr[25:10] < gfx_start  && bulk_addr[25:10] >=pcm_start;
 wire is_gfx    = bulk_addr[25:10] < qsnd_start && bulk_addr[25:10] >=gfx_start;
 wire is_qsnd   = ioctl_addr >= FULL_HEADER && bulk_addr[25:10] >=qsnd_start; // Q-Sound ROM
+`endif
 
 `ifdef CPS2_PRG8
 // Prototype header bytes 12..15: "C2", version 1, program capability 1.
 // A fresh download clears authorization at byte 0; a user reset retains it.
 // Only a complete, ordered marker with an exact 8 MiB CPU region enables it.
 reg [2:0] ext_header_step = 0;
+`ifdef CPS2_QSND24
+wire cap_ok = ext_header_step==3 && snd_start==16'h2000 && (
+                ioctl_dout==8'h01 ||
+               (ioctl_dout==8'h03 && gfx_slice_ok) ||
+              ((ioctl_dout==8'h05 || ioctl_dout==8'h07) && qsnd_flat_ok));
+`endif
 always @(posedge clk) begin
     if (ioctl_wr && ioctl_rom && !ioctl_ram) begin
         if (ioctl_addr==0) begin
@@ -117,11 +162,17 @@ always @(posedge clk) begin
 `ifdef CPS2_OBJEXT
             cps2_obj_ext  <= 0;
 `endif
+`ifdef CPS2_QSND24
+            cps2_qsnd_ext <= 0;
+`endif
             ext_header_step <= 0;
         end else if (ioctl_addr==12) begin
             cps2_prog_ext <= 0;
 `ifdef CPS2_OBJEXT
             cps2_obj_ext  <= 0;
+`endif
+`ifdef CPS2_QSND24
+            cps2_qsnd_ext <= 0;
 `endif
             ext_header_step <= ioctl_dout==8'h43 ? 1 : 0;
         end else if (ioctl_addr==13) begin
@@ -129,7 +180,17 @@ always @(posedge clk) begin
         end else if (ioctl_addr==14) begin
             ext_header_step <= ext_header_step==2 && ioctl_dout==8'h01 ? 3 : 0;
         end else if (ioctl_addr==15) begin
-`ifdef CPS2_OBJEXT
+`ifdef CPS2_QSND24
+            // Byte 15 is a capability mask: 01 program window, 02 object slice,
+            // 04 flat QSound. Accepted: 01, 03, 05 and 07. 03 needs the 40 MiB
+            // graphics region of the stock order; 05 and 07 need the flat
+            // order (qsnd_flat_ok), where graphics are open-ended and the 07
+            // slice size is bounded at download instead (gfx_allowed). Any
+            // other value or a failed condition leaves every capability off.
+            cps2_prog_ext <= cap_ok;
+            cps2_obj_ext  <= cap_ok && ioctl_dout[1];
+            cps2_qsnd_ext <= cap_ok && ioctl_dout[2];
+`elsif CPS2_OBJEXT
             // Byte 15 is a capability mask: 01 = program window, 03 = program
             // window plus the 8 MiB object extension slice. 03 additionally
             // requires a graphics region of exactly 40 MiB (32 MiB library +
@@ -162,7 +223,15 @@ wire cpu_allowed = 1'b1;
 wire        gfx_slice_ok  = (qsnd_start - gfx_start) == 16'ha000;
 wire        gfx_slice     = cps2_obj_ext && gfx_addr[25];
 wire [23:0] gfx_phys      = {gfx_slice, gfx_addr[24], gfx_addr[22:1]};
+`ifdef CPS2_QSND24
+// In the flat order graphics are the open-ended top region: bytes past the
+// library (32 MiB, 40 MiB with the slice) are dropped, never wrapped.
+wire        gfx_allowed   = !is_gfx || (cps2_qsnd_ext ?
+                                gfx_off < (cps2_obj_ext ? 27'h2800000 : 27'h2000000) :
+                                !gfx_addr[25] || cps2_obj_ext);
+`else
 wire        gfx_allowed   = !is_gfx || !gfx_addr[25] || cps2_obj_ext;
+`endif
 `else
 wire [22:0] gfx_phys      = {gfx_addr[24], gfx_addr[22:1]};
 wire        gfx_allowed   = 1'b1;
@@ -172,7 +241,11 @@ reg       decrypt, pang3, pang3_bit;
 reg [7:0] pang3_decrypt;
 
 always @(*) begin
+`ifdef CPS2_QSND24
+    gfx_addr  = gfx_off[25:0];
+`else
     gfx_addr  = bulk_addr - { gfx_start, 10'd0 };
+`endif
 `ifdef CPS2
     // CPS2 address lines are scrambled
     gfx_addr = { gfx_addr[25:21], gfx_addr[3], gfx_addr[20:4], gfx_addr[2:0] };

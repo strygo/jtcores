@@ -49,19 +49,19 @@ The vsav2 kit also carries **slice** (patch 0003, core `jtcps2-prg8-objext.rbf`,
 128 MiB SDRAM module required; see the README's "Object extension slice"
 for the platform prerequisite). At power-on, before the game boots, the
 screen must show for about three seconds: a row of stock tiles (possibly
-blank) at the top, a row of eight solid colour blocks below it whose last
-block is a 2×2 of four colours, an empty row, and a row identical to the
+blank) at the top, a row of eight solid color blocks below it whose last
+block is a 2×2 of four colors, an empty row, and a row identical to the
 first; then Vampire Savior 2 starts and plays exactly as `hook`. Record
-what each row shows. Missing colour blocks mean the slice download or the
+what each row shows. Missing color blocks mean the slice download or the
 alias path failed; blocks in the third row mean the reserved bank bits
 fetch; corrupted stock sprites in the game mean the 40 MiB region overwrote
 the library. The `slice` MRA must fail to boot on `jtcps2-prg8-program.rbf`
 (marker `03` is rejected there).
 
 The `jtcps2-prg8-objext.rbf` core is the first to drive the 128 MiB module
-as two chips (patch 0004; the staged copy is run 36621029996's, packaged with
-one reviewed finding: `SDRAM_nCS` was an unconstrained output, and patch 0005
-constrains it without changing any logic): `SDRAM_nCS` low selects U1, high selects U2
+as two chips (patch 0004; builds with patch 0005 also constrain `SDRAM_nCS`, and run
+36643810857 reports +3.4 ns of setup slack on that pin, more than the module
+inverter's 3.3 ns worst case): `SDRAM_nCS` low selects U1, high selects U2
 through the module's inverter, and every refresh slot refreshes both. Only
 the real module can show whether U2 keeps up with the shared bus at 96 MHz:
 run the `slice` control, then a long session of `hook` (all its data lives
@@ -70,6 +70,36 @@ after minutes (U2 refresh or signal integrity) as distinct from immediate
 garbage (address or chip-select polarity). Record the module revision
 (XS-DS v2.9 or v3.0) and the SDRAM chips' marking. The stock 64 MiB module
 must not be used with this core: chip-1 addresses read a floating bus.
+
+The vsav2 kit also carries the flat QSound pair of patch 0006, **qsound** and
+**qsmirror** (core `jtcps2-prg8-objext.rbf` built from the series with 0006,
+128 MiB SDRAM module required; see the README's "Flat 24-bit QSound"). Both
+play two generated tones through the stock Z80 driver from their reset hook
+before the game boots; `qsound` (marker 07, 64.25 MiB image, samples then
+DSP firmware then graphics) reaches them at banks `0x80` and `0xff` of a 16 MiB
+library, `qsmirror` (marker 01, stock order, the same library and hook) must
+not. Run `qsound` first. For about five seconds after power-on the screen must
+show, on a black background near the top left: a row of the game's own tiles
+(possibly blank), a row of eight solid color blocks (blue, green, red, cyan,
+magenta, yellow, white, grey), and a third row of the same eight colors whose
+tile bytes were downloaded above the 64 MiB boundary of the image; and the
+speakers must play a 1 kHz beep of half a second, a 1.5 kHz tone of about a
+second, a pause, and the pair once more. Then Vampire Savior 2 starts and
+plays exactly as `hook`. Record what each row shows and what you heard,
+including anything that sounds like a different sample or noise instead of a
+clean tone. Then run `qsmirror` on the same core: rows 2 and 3 show the game's
+own art instead of color blocks, the tones are absent (faint stock content or
+silence in their place) and the game boots; identical behavior is expected on
+the older `objext` core and on `program`. Finally run `qsound` on a core
+without patch 0006 (the staging folder keeps the run 36643810857 `objext` RBF
+under its own name with its own MRA): it must not boot at all, since marker
+07 is rejected there and the reordered image misloads. Failure modes and what
+they mean: color blocks but no tones = the sample path (latch, PCM slot or
+bank 1 above 8 MiB) failed; tones but wrong or missing colors in row 3 =
+the download above 64 MiB failed (a truncated address puts those bytes into
+the CPU region, which usually means no boot at all); tones on `qsmirror` = the
+capability gate failed open; a boot on the old core = the marker was not
+rejected. As with `slice`, the stock 64 MiB module must not be used.
 
 Then switch from **hook** to **legacy**, and from the prototype to a normal
 stock CPS-2 MRA. Check that the ordinary game boots with its usual graphics,

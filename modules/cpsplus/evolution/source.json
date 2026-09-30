@@ -38,5 +38,22 @@
       "path": "mra/Vampire Savior 2 The Lord of Vampire (Japan 970913).mra",
       "sha256": "20cde4b0107797778037774e3b001a3718eb3c362ef2e387c189caaa12d0b4bb"
     }
+  },
+  "qsound_flat": {
+    "profile": "CPS2_PRG8 CPS2_OBJEXT CPS2_QSND24 JTFRAME_SDRAM_XL (jtcore: -d CPS2_PRG8 -d CPS2_OBJEXT -d CPS2_QSND24 -d JTFRAME_SDRAM_XL -u JTFRAME_SDRAM_LARGE, the objext profile)",
+    "header_marker_hex": "43320105 (program window + flat QSound) or 43320107 (+ object slice)",
+    "sample_library_bytes": 16777216,
+    "sample_sdram_bank": 1,
+    "sample_sdram_byte_start": 0,
+    "dsp_bank_bits": 8,
+    "region_order": [
+      "cpu 8 MiB",
+      "z80",
+      "samples 16 MiB",
+      "dsp firmware 8 KiB (8 KiB aligned)",
+      "graphics (open-ended: 32 MiB, 40 MiB with the slice)"
+    ],
+    "image_bytes_with_slice": 67379264,
+    "download_address_bits": 27
   }
 }
