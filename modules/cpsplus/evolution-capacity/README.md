@@ -5,7 +5,7 @@ MiSTer for enhanced images. It is not a game port or a production release.
 The branch retains the pinned CPS+ audio modules unchanged. Appended CPS+
 packs are outside the new native-image profile.
 
-The export contains all nine patches, the pinned source/submodule identities,
+The export contains the complete patch series, the pinned source/submodule identities,
 the functional native-loader qualification receipt and a self-contained source
 verifier. Run the verifier from the core checkout before generating build
 outputs:
@@ -13,6 +13,7 @@ outputs:
 ```sh
 git submodule update --init modules/fx68k modules/jtdsp16 modules/jteeprom
 python3 modules/cpsplus/evolution-capacity/verify_export.py --root "$PWD"
+python3 modules/cpsplus/evolution-capacity/verify_export.py --root "$PWD" --self-test
 ```
 
 The verifier checks all tracked changes against the declared base, replays

@@ -12,7 +12,8 @@
     "0006-qsound-flat.patch": "2c13942a3ee7d3a96ab418445b150bf8c921e556ea07fa5f7e3ac701e7c5fd32",
     "0007-full-object-graphics.patch": "dea1e9bf59cb33bda8515749a2e4c8bbe7719534fb6986ff91eed77230c2a1b0",
     "0008-scroll-tile-bank.patch": "a56b6f48cc993aae2c9d8d6f5e529198f052d54a0df7a077a04b7cca9e63869e",
-    "0009-bounded-native-image.patch": "17873864fb1e25456d45783c45894e35edbfae69b2c5090d8b3482774e1e9d58"
+    "0009-bounded-native-image.patch": "17873864fb1e25456d45783c45894e35edbfae69b2c5090d8b3482774e1e9d58",
+    "0010-synchronous-download-rearm.patch": "8e3e310810d57a3f981b1f51502e01cb40a89ecba84539538719001bf770ac11"
   },
   "profile_defines": [
     "-DCPS2",
@@ -43,7 +44,8 @@
     "patches/0006-qsound-flat.patch": "2c13942a3ee7d3a96ab418445b150bf8c921e556ea07fa5f7e3ac701e7c5fd32",
     "capacity/patches/0007-full-object-graphics.patch": "dea1e9bf59cb33bda8515749a2e4c8bbe7719534fb6986ff91eed77230c2a1b0",
     "capacity/patches/0008-scroll-tile-bank.patch": "a56b6f48cc993aae2c9d8d6f5e529198f052d54a0df7a077a04b7cca9e63869e",
-    "capacity/native-patches/0009-bounded-native-image.patch": "17873864fb1e25456d45783c45894e35edbfae69b2c5090d8b3482774e1e9d58"
+    "capacity/native-patches/0009-bounded-native-image.patch": "17873864fb1e25456d45783c45894e35edbfae69b2c5090d8b3482774e1e9d58",
+    "capacity/native-patches/0010-synchronous-download-rearm.patch": "8e3e310810d57a3f981b1f51502e01cb40a89ecba84539538719001bf770ac11"
   },
   "verilator_version": "Verilator 5.050 2026-07-01 rev vUNKNOWN-built20260701",
   "tests": {
@@ -94,6 +96,8 @@
     "native_sample_playback_qualified": false,
     "production_builder_migrated": false,
     "new_rbf_built": false,
-    "hardware_validated": false
+    "hardware_validated": false,
+    "generated_result_sha256": "1ea0afa66217fd440cd22731baaf2100b9d530e9d42589235780bb74cc9f3ff5",
+    "synchronous_reload_rearm": true
   }
 }

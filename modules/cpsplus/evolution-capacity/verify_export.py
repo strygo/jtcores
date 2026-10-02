@@ -62,8 +62,32 @@ def verify(root):
     return manifest
 
 
+def self_test(root):
+    verify(root)
+    # A committed edit outside all declared RTL files must fail the whole-tree
+    # check, even though every known patched file still has its expected hash.
+    with tempfile.TemporaryDirectory(prefix="capacity-mutation-", dir=root.parent) as tmp:
+        mutant = Path(tmp) / "tree"
+        git(root, "worktree", "add", "--detach", "-q", str(mutant), "HEAD")
+        try:
+            target = mutant / "modules/cpsplus/README.md"
+            target.write_text(target.read_text() + "\nUnexpected containment test edit.\n")
+            git(mutant, "add", "--", "modules/cpsplus/README.md")
+            git(mutant, "-c", "user.name=Containment Test", "-c", "user.email=containment@example.invalid",
+                "commit", "-q", "-m", "temporary containment mutation")
+            try: verify(mutant)
+            except ValueError as error:
+                if "full-tree delta mismatch" not in str(error): raise
+            else: raise AssertionError("unexpected committed CPS+ subtree edit passed")
+        finally:
+            git(root, "worktree", "remove", "--force", str(mutant))
+    print("PASS containment negative control: unexpected committed CPS+ subtree edit rejected")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, required=True)
+    parser.add_argument("--self-test", action="store_true")
     args = parser.parse_args()
-    verify(args.root.resolve())
+    if args.self_test: self_test(args.root.resolve())
+    else: verify(args.root.resolve())

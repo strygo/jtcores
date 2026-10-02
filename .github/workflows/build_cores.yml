@@ -58,7 +58,7 @@ jobs:
             sudo cp "$src" "fitter_results/jtcps2-capacity-$PROFILE.rbf"
           fi
           if [ -d fitter_results ]; then
-            cp modules/cpsplus/evolution-capacity/export_manifest.json fitter_results/source_manifest.json
+            sudo cp modules/cpsplus/evolution-capacity/export_manifest.json fitter_results/source_manifest.json
           fi
       - uses: actions/upload-artifact@v4
         if: always()

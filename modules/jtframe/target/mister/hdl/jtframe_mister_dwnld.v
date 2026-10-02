@@ -335,11 +335,7 @@ wire cnt_over = &ddram_cnt;
 reg ddram_wait;
 
 always @(posedge clk, posedge rst) begin
-    `ifdef CPS2_NATIVE128
-    if(rst || new_rom_download) begin
-`else
     if( rst ) begin
-`endif
         ddram_cnt  <= 0;
         ddram_page <= 0;
         ddram_wait <= 0;
@@ -347,6 +343,20 @@ always @(posedge clk, posedge rst) begin
 `ifdef CPSPLUS
         pack_ptr   <= 16'hffff;
         pad_len    <= 16'hffff;
+`endif
+`ifdef CPS2_NATIVE128
+    end else if(new_rom_download) begin
+        // Rearm synchronously. Only rst belongs to the asynchronous reset
+        // edge in this process (required by FPGA synthesis).
+        ddram_cnt  <= 0;
+        ddram_page <= 0;
+        ddram_wait <= 0;
+        ddram_rd   <= 0;
+        tx_start   <= 0;
+`ifdef CPSPLUS
+        pack_ptr   <= 16'hffff;
+        pad_len    <= 16'hffff;
+`endif
 `endif
     end else if(!ddram_busy ) begin
         if( ddr_dwn  ) begin
@@ -393,17 +403,22 @@ reg [ 5:0] timeout;
 
 // Send to core
 always @(posedge clk, posedge rst) begin
-    `ifdef CPS2_NATIVE128
-    if(rst || new_rom_download) begin
-`else
     if( rst ) begin
-`endif
         tx_done  <= 1;
         dump_cnt <= 27'd0;
         dump_we  <= 0;
         dump_ser <= 64'd0;
         st       <= 2'd0;
         timeout  <= 5'd0;
+`ifdef CPS2_NATIVE128
+    end else if(new_rom_download) begin
+        tx_done  <= 1;
+        dump_cnt <= 27'd0;
+        dump_we  <= 0;
+        dump_ser <= 64'd0;
+        st       <= 2'd0;
+        timeout  <= 5'd0;
+`endif
     end else begin
         if( tx_start ) begin
             tx_done <= 0;
