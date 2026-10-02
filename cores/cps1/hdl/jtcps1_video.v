@@ -42,6 +42,9 @@ module jtcps1_video(
     output             oram_clr,
     output             oram_cs,
     input      [15:0]  oram_data,
+`ifdef CPS2_OBJEXT
+    input              oram_ext,
+`endif
     `endif
 
     // CPU interface
@@ -93,6 +96,9 @@ module jtcps1_video(
     output             flip,
 
     // GFX ROM interface
+`ifdef CPS2_SCREXT
+    output             rom1_ext,
+`endif
     output     [19:0]  rom1_addr,
     output             rom1_half,    // selects which half to read
     input      [31:0]  rom1_data,
@@ -100,7 +106,11 @@ module jtcps1_video(
     input              rom1_ok,
 
     output     [19:0]  rom0_addr,
+`ifdef CPS2_OBJEXT
+    output     [ 2:0]  rom0_bank,
+`else
     output     [ 1:0]  rom0_bank,
+`endif
     output             rom0_half,    // selects which half to read
     input      [31:0]  rom0_data,
     output             rom0_cs,
@@ -452,6 +462,9 @@ jtcps1_scroll u_scroll(
     .tile_addr  ( tile_addr     ),
     .tile_data  ( tile_data     ),
 
+`ifdef CPS2_SCREXT
+    .rom_ext    ( rom1_ext      ),
+`endif
     .rom_addr   ( rom1_addr     ),
     .rom_data   ( rom1_data     ),
     .rom_cs     ( rom1_cs       ),
@@ -478,6 +491,9 @@ jtcps1_scroll u_scroll(
 );
 `else
 assign rom1_cs    = 1'b0;
+`ifdef CPS2_SCREXT
+assign rom1_ext   = 1'b0;
+`endif
 assign rom1_addr  = 20'd0;
 assign scr1_pxl   = 11'h1ff;
 assign scr2_pxl   = 11'h1ff;
@@ -519,6 +535,9 @@ assign scr3_pxl   = 11'h1ff;
     assign rom0_bank = 2'b10;
 `else
     jtcps2_obj u_obj(
+`ifdef CPS2_OBJEXT
+        .oram_ext   ( oram_ext      ),
+`endif
         .rst        ( rst           ),
         .clk        ( clk           ),
         .clk_cpu    ( clk_cpu       ),

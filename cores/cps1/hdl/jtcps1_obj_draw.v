@@ -23,7 +23,11 @@ module jtcps1_obj_draw (
     input      [15:0]  obj_code,
     input      [15:0]  obj_attr,
     input      [ 8:0]  obj_hpos,
+`ifdef CPS2_OBJEXT
+    input      [ 2:0]  obj_bank,
+`else
     input      [ 1:0]  obj_bank,
+`endif
     `ifdef CPS2
     input      [ 2:0]  obj_prio,
     output reg [ 2:0]  buf_prio,
@@ -38,7 +42,11 @@ module jtcps1_obj_draw (
 
     // ROM interface
     output reg [19:0]  rom_addr,    // up to 1 MB
+`ifdef CPS2_OBJEXT
+    output reg [ 2:0]  rom_bank,
+`else
     output reg [ 1:0]  rom_bank,
+`endif
     output reg         rom_half,    // selects which half to read
     input      [31:0]  rom_data,
     output reg         rom_cs,
@@ -86,7 +94,7 @@ always @(posedge clk, posedge rst) begin
         draw       <= 0;
         wait_cycle <= 0;
         draw_cnt   <= 8'h0;
-        rom_bank   <= 2'd0;
+        rom_bank   <= 0;
         pxl_data   <= 0;
     end else begin
         wait_cycle <= 0;
@@ -102,7 +110,7 @@ always @(posedge clk, posedge rst) begin
                 half       <= 1;    // which half are we drawing?
             end else begin
                 rom_cs   <= 0;
-                rom_bank <= 2'd0;
+                rom_bank <= 0;
             end
         end
         if( draw ) begin

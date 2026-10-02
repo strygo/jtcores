@@ -56,6 +56,9 @@ module jtcps1_scroll(
     input      [15:0]  bank_offset,
     input      [15:0]  bank_mask,
 
+`ifdef CPS2_SCREXT
+    output             rom_ext,
+`endif
     output     [19:0]  rom_addr,    // up to 1 MB
     output             rom_half,    // selects which half to read
     input      [31:0]  rom_data,
@@ -275,6 +278,9 @@ jtcps1_tilemap u_tilemap(
     .tile_addr  ( tile_addr     ),
     .tile_data  ( tile_data     ),
 
+`ifdef CPS2_SCREXT
+    .rom_ext    ( rom_ext       ),
+`endif
     .rom_addr   ( rom_addr      ),    // up to 1 MB
     .rom_half   ( rom_half      ),    // selects which half to read
     .rom_data   ( rom_data      ),

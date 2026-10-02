@@ -1,0 +1,178 @@
+diff --git a/cores/cps1/hdl/jtcps1_tilemap.v b/cores/cps1/hdl/jtcps1_tilemap.v
+--- a/cores/cps1/hdl/jtcps1_tilemap.v
++++ b/cores/cps1/hdl/jtcps1_tilemap.v
+@@ -46,6 +46,9 @@
+ 
+ 
+     output reg [19:0]  rom_addr,    // up to 1 MB
++`ifdef CPS2_SCREXT
++    output reg         rom_ext,     // per-tile attribute bit 9, latched before its first ROM request
++`endif
+     output reg         rom_half,    // selects which half to read
+     input      [31:0]  rom_data,
+     output reg         rom_cs,
+@@ -195,6 +198,9 @@
+         done            <= 0;
+         st              <= 0;
+         rom_addr        <= 0;
++`ifdef CPS2_SCREXT
++        rom_ext         <= 0;
++`endif
+         rom_half        <= 0;
+         code            <= 0;
+         buf_addr        <= 0;
+@@ -231,6 +237,9 @@
+                 code         <= tile_data;
+             end
+             3: begin // attributes
++`ifdef CPS2_SCREXT
++                rom_ext <= tile_data[9];
++`endif
+                 hflip   <= tile_data[5];
+                 group   <= tile_data[8:7];
+                 vflip   <= tile_data[6];
+diff --git a/cores/cps1/hdl/jtcps1_scroll.v b/cores/cps1/hdl/jtcps1_scroll.v
+--- a/cores/cps1/hdl/jtcps1_scroll.v
++++ b/cores/cps1/hdl/jtcps1_scroll.v
+@@ -56,6 +56,9 @@
+     input      [15:0]  bank_offset,
+     input      [15:0]  bank_mask,
+ 
++`ifdef CPS2_SCREXT
++    output             rom_ext,
++`endif
+     output     [19:0]  rom_addr,    // up to 1 MB
+     output             rom_half,    // selects which half to read
+     input      [31:0]  rom_data,
+@@ -275,6 +278,9 @@
+     .tile_addr  ( tile_addr     ),
+     .tile_data  ( tile_data     ),
+ 
++`ifdef CPS2_SCREXT
++    .rom_ext    ( rom_ext       ),
++`endif
+     .rom_addr   ( rom_addr      ),    // up to 1 MB
+     .rom_half   ( rom_half      ),    // selects which half to read
+     .rom_data   ( rom_data      ),
+diff --git a/cores/cps1/hdl/jtcps1_video.v b/cores/cps1/hdl/jtcps1_video.v
+--- a/cores/cps1/hdl/jtcps1_video.v
++++ b/cores/cps1/hdl/jtcps1_video.v
+@@ -96,6 +96,9 @@
+     output             flip,
+ 
+     // GFX ROM interface
++`ifdef CPS2_SCREXT
++    output             rom1_ext,
++`endif
+     output     [19:0]  rom1_addr,
+     output             rom1_half,    // selects which half to read
+     input      [31:0]  rom1_data,
+@@ -459,6 +462,9 @@
+     .tile_addr  ( tile_addr     ),
+     .tile_data  ( tile_data     ),
+ 
++`ifdef CPS2_SCREXT
++    .rom_ext    ( rom1_ext      ),
++`endif
+     .rom_addr   ( rom1_addr     ),
+     .rom_data   ( rom1_data     ),
+     .rom_cs     ( rom1_cs       ),
+@@ -485,6 +491,9 @@
+ );
+ `else
+ assign rom1_cs    = 1'b0;
++`ifdef CPS2_SCREXT
++assign rom1_ext   = 1'b0;
++`endif
+ assign rom1_addr  = 20'd0;
+ assign scr1_pxl   = 11'h1ff;
+ assign scr2_pxl   = 11'h1ff;
+diff --git a/cores/cps2/hdl/jtcps2_game.v b/cores/cps2/hdl/jtcps2_game.v
+--- a/cores/cps2/hdl/jtcps2_game.v
++++ b/cores/cps2/hdl/jtcps2_game.v
+@@ -47,6 +47,9 @@
+ wire        ppu1_cs, ppu2_cs, ppu_rstn, objcfg_cs;
+ wire        raster;
+ wire [19:0] rom1_addr, rom0_addr;
++`ifdef CPS2_SCREXT
++wire        rom1_ext;
++`endif
+ `ifdef CPS2_OBJEXT
+ wire [ 2:0] rom0_bank;
+ wire        gfx_oram_ext, obj_ext;
+@@ -311,6 +314,9 @@
+     .vram_rfsh_en   ( vram_rfsh_en  ),
+ 
+     // GFX ROM interface
++`ifdef CPS2_SCREXT
++    .rom1_ext       ( rom1_ext      ),
++`endif
+     .rom1_addr      ( rom1_addr     ),
+     .rom1_half      ( rom1_half     ),
+     .rom1_data      ( rom1_data     ),
+@@ -649,6 +655,9 @@
+ 
+     .rom0_addr   ( rom0_addr     ),
+     .rom0_bank   ( rom0_bank     ),
++`ifdef CPS2_SCREXT
++    .rom1_ext    ( rom1_ext      ),
++`endif
+     .rom1_addr   ( rom1_addr     ),
+ 
+     .rom0_half   ( rom0_half     ),
+diff --git a/cores/cps1/hdl/jtcps1_sdram.v b/cores/cps1/hdl/jtcps1_sdram.v
+--- a/cores/cps1/hdl/jtcps1_sdram.v
++++ b/cores/cps1/hdl/jtcps1_sdram.v
+@@ -145,6 +145,9 @@
+ `else
+     input    [ 1:0] rom0_bank,
+ `endif
++`ifdef CPS2_SCREXT
++    input           rom1_ext,
++`endif
+     input    [19:0] rom1_addr,
+ 
+     input           rom0_half,
+@@ -244,6 +247,18 @@
+ 
+ assign gfx0_addr   = {rom0_addr, rom0_half, 1'b0 }; // OBJ
+ assign gfx1_addr   = {rom1_addr, rom1_half, 1'b0 };
++`ifdef CPS2_SCREXT
++`ifndef CPS2_GFX64
++    `CPS2_SCREXT_requires_CPS2_GFX64
++`endif
++`ifndef CPS2
++    `CPS2_SCREXT_requires_CPS2
++`endif
++// Scroll keeps the native bank-3 window: low library bytes 8..16 MiB,
++// or high library bytes 40..48 MiB. The request carries the tile's bit;
++// old image modes ignore it even if native attributes happen to set bit 9.
++wire [23:0] gfx1_full = {rom1_ext & cps2_gfx_full, 1'b0, gfx1_addr};
++`endif
+ assign ram_vram_cs = main_ram_cs | main_vram_cs | main_oram_cs;
+ // VRAM_OFFSET is selected during reset
+ assign main_offset = main_oram_cs ? ORAM_OFFSET :
+@@ -545,7 +560,11 @@
+     .SLOT0_DOUBLE( 1             ),
+ 
+     // Slot 1: Scroll
++`ifdef CPS2_SCREXT
++    .SLOT1_AW    ( SDRAMW        ),
++`else
+     .SLOT1_AW    ( 22            ),
++`endif
+     .SLOT1_DW    ( 32            ),
+     .SLOT1_OFFSET( SCR_OFFSET    ),
+     .SLOT1_DOUBLE( 1             ),
+@@ -570,7 +589,11 @@
+     .slot1_ok    ( rom1_ok       ),
+ 
+     .slot0_addr  ( cps2_gfx0     ),
++`ifdef CPS2_SCREXT
++    .slot1_addr  ( gfx1_full     ),
++`else
+     .slot1_addr  ( gfx1_addr     ),
++`endif
+ 
+     .slot0_dout  ( objgfx_dout1  ),
+     .slot1_dout  ( rom1_data     ),

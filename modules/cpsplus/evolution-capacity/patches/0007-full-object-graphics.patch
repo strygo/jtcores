@@ -1,0 +1,142 @@
+diff --git a/cores/cps1/hdl/jtcps1_prom_we.v b/cores/cps1/hdl/jtcps1_prom_we.v
+--- a/cores/cps1/hdl/jtcps1_prom_we.v
++++ b/cores/cps1/hdl/jtcps1_prom_we.v
+@@ -62,6 +62,9 @@
+ `ifdef CPS2_QSND24
+     ,output reg         cps2_qsnd_ext = 1'b0
+ `endif
++`ifdef CPS2_GFX64
++    ,output reg         cps2_gfx_full = 1'b0
++`endif
+ );
+ 
+ assign dwnld_busy = ioctl_rom;
+@@ -149,12 +152,30 @@
+ // A fresh download clears authorization at byte 0; a user reset retains it.
+ // Only a complete, ordered marker with an exact 8 MiB CPU region enables it.
+ reg [2:0] ext_header_step = 0;
+-`ifdef CPS2_QSND24
++`ifdef CPS2_GFX64
++`ifndef CPS2_QSND24
++    `CPS2_GFX64_requires_CPS2_QSND24
++`endif
++// Development-only version 7f. Version 1 retains its 40 MiB slice semantics.
++// M2 will replace this diagnostic envelope with the bounded release format.
++reg full_header = 0;
++wire full_header_ok = ioctl_dout==8'h07 && qsnd_flat_ok &&
++                      pcm_start > snd_start && qsnd_start > pcm_start && gfx_start > qsnd_start;
++`endif
++`ifdef CPS2_QSND24
++`ifdef CPS2_GFX64
++wire cap_ok = ext_header_step==3 && snd_start==16'h2000 && (
++                full_header ? full_header_ok :
++                (ioctl_dout==8'h01 ||
++                (ioctl_dout==8'h03 && gfx_slice_ok) ||
++               ((ioctl_dout==8'h05 || ioctl_dout==8'h07) && qsnd_flat_ok)));
++`else
+ wire cap_ok = ext_header_step==3 && snd_start==16'h2000 && (
+                 ioctl_dout==8'h01 ||
+                (ioctl_dout==8'h03 && gfx_slice_ok) ||
+               ((ioctl_dout==8'h05 || ioctl_dout==8'h07) && qsnd_flat_ok));
+ `endif
++`endif
+ always @(posedge clk) begin
+     if (ioctl_wr && ioctl_rom && !ioctl_ram) begin
+         if (ioctl_addr==0) begin
+@@ -165,6 +186,10 @@
+ `ifdef CPS2_QSND24
+             cps2_qsnd_ext <= 0;
+ `endif
++`ifdef CPS2_GFX64
++            cps2_gfx_full <= 0;
++            full_header <= 0;
++`endif
+             ext_header_step <= 0;
+         end else if (ioctl_addr==12) begin
+             cps2_prog_ext <= 0;
+@@ -173,12 +198,21 @@
+ `endif
+ `ifdef CPS2_QSND24
+             cps2_qsnd_ext <= 0;
++`endif
++`ifdef CPS2_GFX64
++            cps2_gfx_full <= 0;
++            full_header <= 0;
+ `endif
+             ext_header_step <= ioctl_dout==8'h43 ? 1 : 0;
+         end else if (ioctl_addr==13) begin
+             ext_header_step <= ext_header_step==1 && ioctl_dout==8'h32 ? 2 : 0;
+         end else if (ioctl_addr==14) begin
++`ifdef CPS2_GFX64
++            ext_header_step <= ext_header_step==2 && (ioctl_dout==8'h01 || ioctl_dout==8'h7f) ? 3 : 0;
++            full_header <= ext_header_step==2 && ioctl_dout==8'h7f;
++`else
+             ext_header_step <= ext_header_step==2 && ioctl_dout==8'h01 ? 3 : 0;
++`endif
+         end else if (ioctl_addr==15) begin
+ `ifdef CPS2_QSND24
+             // Byte 15 is a capability mask: 01 program window, 02 object slice,
+@@ -190,6 +224,9 @@
+             cps2_prog_ext <= cap_ok;
+             cps2_obj_ext  <= cap_ok && ioctl_dout[1];
+             cps2_qsnd_ext <= cap_ok && ioctl_dout[2];
++`ifdef CPS2_GFX64
++            cps2_gfx_full <= cap_ok && full_header;
++`endif
+ `elsif CPS2_OBJEXT
+             // Byte 15 is a capability mask: 01 = program window, 03 = program
+             // window plus the 8 MiB object extension slice. 03 additionally
+@@ -226,9 +263,16 @@
+ `ifdef CPS2_QSND24
+ // In the flat order graphics are the open-ended top region: bytes past the
+ // library (32 MiB, 40 MiB with the slice) are dropped, never wrapped.
++`ifdef CPS2_GFX64
++wire        gfx_allowed   = !is_gfx || (cps2_qsnd_ext ?
++                                gfx_off < (cps2_gfx_full ? 27'h4000000 :
++                                           (cps2_obj_ext ? 27'h2800000 : 27'h2000000)) :
++                                !gfx_addr[25] || cps2_obj_ext);
++`else
+ wire        gfx_allowed   = !is_gfx || (cps2_qsnd_ext ?
+                                 gfx_off < (cps2_obj_ext ? 27'h2800000 : 27'h2000000) :
+                                 !gfx_addr[25] || cps2_obj_ext);
++`endif
+ `else
+ wire        gfx_allowed   = !is_gfx || !gfx_addr[25] || cps2_obj_ext;
+ `endif
+diff --git a/cores/cps1/hdl/jtcps1_sdram.v b/cores/cps1/hdl/jtcps1_sdram.v
+--- a/cores/cps1/hdl/jtcps1_sdram.v
++++ b/cores/cps1/hdl/jtcps1_sdram.v
+@@ -276,6 +276,9 @@
+ // (marker bit 04) bank bytes 0x80..0xff read library bytes 8..16 MiB, in
+ // bank 1 bytes 8..16 MiB (chip 0: word address bit 23 stays 0); without it
+ // bit 23 is cleared, the stock mirror of the 8 MiB library.
++`ifdef CPS2_GFX64
++wire        cps2_gfx_full;
++`endif
+ wire        cps2_qsnd_ext;
+ wire [23:0] pcm_flat = { pcm_addr[23] & cps2_qsnd_ext, pcm_addr[22:0] };
+ `endif
+@@ -295,6 +298,9 @@
+ `endif
+ `ifdef CPS2_QSND24
+     .cps2_qsnd_ext   ( cps2_qsnd_ext ),
++`ifdef CPS2_GFX64
++    .cps2_gfx_full   ( cps2_gfx_full ),
++`endif
+ `endif
+     .clk            ( clk           ),
+     .ioctl_rom      ( ioctl_rom     ),
+@@ -467,7 +473,13 @@
+     // with bank bits != 00 is reserved for the 64 MiB library: it draws
+     // transparent without an SDRAM access. Capability off: stock mapping.
+     wire ext_sel   = rom0_bank[2] & cps2_obj_ext;
++`ifdef CPS2_GFX64
++    // All eight native 8 MiB banks under the development full-range marker.
++    // Old images retain their reserved-bank transparency on this same core.
++    wire ext_blank = ext_sel & |rom0_bank[1:0] & ~cps2_gfx_full;
++`else
+     wire ext_blank = ext_sel & |rom0_bank[1:0];
++`endif
+     assign objgfx_cs = {2{rom0_cs & ~ext_blank}} & { rom0_bank[0], ~rom0_bank[0] };
+     assign cps2_gfx0 = { ext_sel, rom0_bank[1], gfx0_addr };
+ 

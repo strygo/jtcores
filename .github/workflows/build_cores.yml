@@ -1,81 +1,72 @@
-name: CPS+ core build
+name: CPS2 native32 capacity development
 
-# Release-style build: the three CPS cores with -d CPSPLUS, RBFs uploaded as
-# artifacts.  Half the compile time of the fitter A/B (one leg per core);
-# use the A/B workflow when the question is timing cost, this one when the
-# deliverable is the cores.
-
+# This replaces the dispatch-only workflow only on the separate native-capacity
+# branch. Production and the earlier VS2A prototype branch are untouched.
 on:
   workflow_dispatch:
     inputs:
       seed:
-        description: Quartus fitter seed
-        required: false
-        default: "1"
-      dbg:
-        description: 'visual CPSPLUS_DBG overlay (1 = build with -d CPSPLUS_DBG)'
-        required: false
-        default: ""
+        description: First Quartus seed
+        default: '1'
       trials:
-        description: 'seeds tried per leg until STA closes (seed, seed+1, ...)'
-        required: false
-        default: "4"
+        description: Maximum fitter seeds per profile
+        default: '2'
+
+permissions:
+  contents: read
 
 jobs:
   build:
-    runs-on: ubuntu-24.04   # pinned amd64 (jtcore20 image is amd64-only)
+    runs-on: ubuntu-24.04
     timeout-minutes: 350
     strategy:
       fail-fast: false
       matrix:
-        core: [cps1, cps15, cps2]
+        profile: [native128, native32]
     steps:
       - uses: actions/checkout@v4
-
-      - name: Init public submodules (per-path, robust)
+        with:
+          fetch-depth: 0
+      - name: Verify complete source provenance
         run: |
-          for p in $(git submodule status | awk '{print $2}'); do
-            git submodule update --init --force "$p" 2>/dev/null && echo "ok   $p" || echo "skip $p (ssh/private?)"
-          done
-          fail=0
-          for f in modules/fx68k/cfg/files.yaml modules/jtdsp16/hdl modules/jteeprom/hdl; do
-            [ -e "$f" ] || { echo "FATAL: required submodule content missing: $f" >&2; fail=1; }
-          done
-          [ "$fail" = 0 ] || exit 1
-
-      - name: Pre-flight -- module file set
-        run: |
-          rc=0
-          for f in $(grep -o 'cpsplus_[A-Za-z0-9_]*\.v' cores/${{ matrix.core }}/cfg/files.yaml | sort -u); do
-            [ -f "modules/cpsplus/hdl/$f" ] || { echo "FAIL: modules/cpsplus/hdl/$f missing" >&2; rc=1; }
-          done
-          exit $rc
-
-      - name: Build ${{ matrix.core }} with CPSPLUS
+          git submodule update --init modules/fx68k modules/jtdsp16 modules/jteeprom
+          python3 modules/cpsplus/evolution-capacity/verify_export.py --root "$PWD"
+          git rev-parse HEAD
+          git submodule status modules/fx68k modules/jtdsp16 modules/jteeprom
+      - name: Compile and check timing
         env:
+          PROFILE: ${{ matrix.profile }}
           SEED: ${{ inputs.seed }}
-          CORE: ${{ matrix.core }}
-          CPSPLUS_DBG: ${{ inputs.dbg }}
           TRIALS: ${{ inputs.trials }}
-          SKIP_STOCK: "1"
         run: |
+          extra='-d CPS2_PRG8 -d CPS2_OBJEXT -d CPS2_QSND24 -d JTFRAME_SDRAM_XL -u JTFRAME_SDRAM_LARGE'
+          if [ "$PROFILE" = native128 ] || [ "$PROFILE" = native32 ]; then
+            extra="$extra -d CPS2_GFX64 -d CPS2_SCREXT -d CPS2_NATIVE128"
+          fi
+          if [ "$PROFILE" = native32 ]; then
+            extra="$extra -d CPS2_QSND32"
+          fi
           docker run --rm --platform linux/amd64 --network host \
-            -e SEED="$SEED" \
-            -e CORE="$CORE" \
-            -e CPSPLUS_DBG="$CPSPLUS_DBG" \
-            -e TRIALS="$TRIALS" \
-            -e SKIP_STOCK="$SKIP_STOCK" \
-            -v "$PWD":/jtcores \
-            jotego/jtcore20 \
+            -e CORE=cps2 -e SKIP_STOCK=1 -e SEED="$SEED" -e TRIALS="$TRIALS" \
+            -e JTCORE_EXTRA="$extra" -v "$PWD":/jtcores \
+            jotego/jtcore20@sha256:58a69912d36b33952253c6c7245bf80ada8ae000084a03e6479d46e9e913baec \
             /jtcores/.github/scripts/fitter_ab.sh /jtcores /jtcores/fitter_results
-
+      - name: Name development cores distinctly
+        if: always()
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          src=fitter_results/cpsplus/jtcps2.rbf
+          if [ -f "$src" ]; then
+            sudo cp "$src" "fitter_results/jtcps2-capacity-$PROFILE.rbf"
+          fi
+          if [ -d fitter_results ]; then
+            sudo cp modules/cpsplus/evolution-capacity/export_manifest.json fitter_results/source_manifest.json
+          fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: jt${{ matrix.core }}-cpsplus
-          path: |
-            fitter_results/cpsplus/jt${{ matrix.core }}_cpsplus.rbf
-            fitter_results/cpsplus/worst_slack.txt
-            fitter_results/manifest.txt
+          name: cps2-capacity-${{ matrix.profile }}
+          path: fitter_results
           retention-days: 30
           if-no-files-found: error

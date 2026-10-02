@@ -1,0 +1,5 @@
+# Unified patch context uses a single space to represent an empty source line.
+patches/*.patch whitespace=-blank-at-eol,-blank-at-eof
+# HPS source uses tabs; the unified context prefix precedes those tabs.
+native-patches/*.patch whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab
+sample32-patches/*.patch whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab

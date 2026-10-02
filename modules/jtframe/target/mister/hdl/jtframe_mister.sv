@@ -272,6 +272,9 @@ wire [COLORW-1:0] hsize_r, hsize_g, hsize_b;
 wire        hps_download, hps_upload, hps_wr, hps_wait;
 wire [15:0] hps_index;
 wire [26:0] hps_addr;
+`ifdef CPS2_NATIVE128
+wire hps_overflow;
+`endif
 wire [ 7:0] hps_dout;
 
 // Screen rotation
@@ -439,6 +442,9 @@ jtframe_mister_dwnld u_dwnld(
     .hps_index      ( hps_index[7:0] ),
     .hps_wr         ( hps_wr         ),
     .hps_addr       ( hps_addr       ),
+`ifdef CPS2_NATIVE128
+    .hps_overflow   ( hps_overflow   ),
+`endif
     .hps_dout       ( hps_dout       ),
     .hps_wait       ( hps_wait       ),
 
@@ -535,6 +541,9 @@ hps_io #(
     .ioctl_download  ( hps_download   ),
     .ioctl_wr        ( hps_wr         ),
     .ioctl_addr      ( hps_addr       ),
+`ifdef CPS2_NATIVE128
+    .ioctl_overflow  ( hps_overflow   ),
+`endif
     .ioctl_dout      ( hps_dout       ),
     .ioctl_din       ( hps_din        ),
     .ioctl_index     ( hps_index      ),
