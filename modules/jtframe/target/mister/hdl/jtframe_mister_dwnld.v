@@ -46,6 +46,9 @@ module jtframe_mister_dwnld(
     input             hps_upload,   // signal indicating an active upload
     input      [ 7:0] hps_index,    // menu index used to upload the file
     input             hps_wr,
+    `ifdef CPS2_NATIVE128
+    input             hps_overflow,
+`endif
     input      [26:0] hps_addr,     // in WIDE mode address will be incremented by 2
     input      [ 7:0] hps_dout,
     output            hps_wait,
@@ -182,6 +185,58 @@ wire [26:0] dump_end = (pack_ptr != 16'h0000 && pack_ptr != 16'hffff)
                      ? {1'b0, pack_ptr, 10'd0} - {17'd0, pad_eff} : ddr_len;
 `endif
 
+`ifdef CPS2_NATIVE128
+`include "jtframe_cps2_native.vh"
+reg native_mode=0, native_bad=0, native_error=0, native_preflight=0;
+reg native_extent_bad=0;
+wire new_rom_download = hps_download && !last_dwn && is_rom;
+reg [3:0] image_error=0; // 1 header, 2 extent/overflow; retained until reload
+integer header_lane;
+reg header_word_bad;
+always @(*) begin
+    header_word_bad=0;
+    for(header_lane=0;header_lane<8;header_lane=header_lane+1)
+        if(native_fixed({ddram_cnt[3:0],3'b000}+header_lane[6:0]) &&
+           ddram_dout[header_lane*8+:8] != native_expected({ddram_cnt[3:0],3'b000}+header_lane[6:0]))
+            header_word_bad=1;
+end
+always @(posedge clk, posedge rst) begin
+    if(rst) begin
+        native_mode<=0;
+        native_bad<=0;
+        native_error<=0;
+        native_preflight<=0;
+        native_extent_bad<=0;
+        image_error<=0;
+    end else if(new_rom_download) begin
+        native_mode<=0;
+        native_bad<=0;
+        native_error<=0;
+        native_preflight<=0;
+        native_extent_bad<=0;
+        image_error<=0;
+    end else begin
+        if(!hps_download && last_dwn && ioctl_rom && !wr_latch) begin
+            native_preflight<=1;
+            native_extent_bad<=hps_overflow || hps_addr!=NATIVE_END;
+        end
+        if(ddr_dwn && ddram_wait && !ddram_busy && ddram_dout_ready && ddram_page==0) begin
+            if(ddram_cnt<16 && header_word_bad) native_bad<=1;
+            // Either identity recognizes this profile; corrupting one cannot
+            // downgrade it into a legacy payload. Legacy versions 1/7f stay exact.
+            if(ddram_cnt==1 && ddram_dout[47:32]==16'h3243 &&
+               ddram_dout[55:48]!=1 && ddram_dout[55:48]!=8'h7f) native_mode<=1;
+            if(ddram_cnt==8 && ddram_dout[31:0]==32'h58453243) native_mode<=1;
+            if(cnt_over) begin
+                native_preflight<=0;
+                native_error<=native_mode && (native_bad || native_extent_bad);
+                if(native_mode && (native_bad || native_extent_bad))
+                    image_error<=native_bad ? 4'd1 : 4'd2;
+            end
+        end
+    end
+end
+`endif
 assign hps_wait = ddr_dwn;
 assign is_rom   = hps_index[5:0]==IDX_ROM;
 assign is_cart  = hps_index[5:0]==IDX_CART;
@@ -190,7 +245,11 @@ assign is_nvram = hps_index[5:0]==IDX_NVRAM;
 // download signals mux — registered to break long combinational path
 // from ddr_dwn through jtframe_dwnld (Add0 → LessThan3 → Selector9 → Add1 → prog_addr)
 always @(posedge clk) begin
+    `ifdef CPS2_NATIVE128
+    ioctl_wr   <= ddr_dwn ? (dump_we && !native_preflight && !native_error) :
+`else
     ioctl_wr   <= ddr_dwn ? dump_we :
+`endif
                              hps_wr && (game_rom || is_nvram);
     ioctl_dout <= ddr_dwn ? dump_ser[7:0] : hps_dout;
     ioctl_addr <= ddr_dwn ? dump_cnt :
@@ -234,7 +293,17 @@ always @(posedge clk, posedge rst) begin
                 ddr_dwn  <= 1;
             end
         end
+`ifdef CPS2_NATIVE128
+        if(!native_preflight && !native_error &&
+           ((!hps_download && last_dwnbusy && !dwnld_busy) ||
+            (ddr_dwn && dump_cnt >= (native_mode ? NATIVE_END :
 `ifdef CPSPLUS
+                                     dump_end
+`else
+                                     ddr_len
+`endif
+             )))) begin
+`elsif CPSPLUS
         if( !hps_download && last_dwnbusy && !dwnld_busy || (ddr_dwn && dump_cnt >= dump_end)) begin
 `else
         if( !hps_download && last_dwnbusy && !dwnld_busy || (ddr_dwn && dump_cnt >= ddr_len)) begin
@@ -242,6 +311,12 @@ always @(posedge clk, posedge rst) begin
             ioctl_rom  <= 0;
             ddr_dwn    <= 0;
         end
+`ifdef CPS2_NATIVE128
+        if(native_error && !hps_download) begin
+            ioctl_rom<=1; // keep the game in reset; do not hold the HPS interface
+            ddr_dwn<=0;
+        end
+`endif
     end
 end
 
@@ -260,7 +335,11 @@ wire cnt_over = &ddram_cnt;
 reg ddram_wait;
 
 always @(posedge clk, posedge rst) begin
+    `ifdef CPS2_NATIVE128
+    if(rst || new_rom_download) begin
+`else
     if( rst ) begin
+`endif
         ddram_cnt  <= 0;
         ddram_page <= 0;
         ddram_wait <= 0;
@@ -314,7 +393,11 @@ reg [ 5:0] timeout;
 
 // Send to core
 always @(posedge clk, posedge rst) begin
+    `ifdef CPS2_NATIVE128
+    if(rst || new_rom_download) begin
+`else
     if( rst ) begin
+`endif
         tx_done  <= 1;
         dump_cnt <= 27'd0;
         dump_we  <= 0;
@@ -331,11 +414,23 @@ always @(posedge clk, posedge rst) begin
             if( st==1 && dump_cnt[2:0]==3'd0 ) begin
                 dump_ser <= dump_data;
             end
+            `ifdef CPS2_NATIVE128
+            dump_we <= st==2'd2 && !native_error &&
+                       (!native_mode || dump_cnt<NATIVE_END);
+`else
             dump_we <= st==2'd2;
+`endif
             timeout <= st==2'd2 ? 5'd0 : (timeout+1'd1);
             case( st )
                 default: st <= st+1'd1;
+                `ifdef CPS2_NATIVE128
+                // Allow the registered IOCTL/native-write pipeline to settle.
+                // Enhanced payloads never advance on the legacy timeout escape.
+                3: if(native_mode ? (timeout>=7 && (!prog_we || prog_rdy)) :
+                                    (prog_rdy || (&timeout))) begin
+`else
                 3: if( prog_rdy || (&timeout) ) begin
+`endif
                     dump_ser <= dump_ser>>8;
                     dump_cnt <= dump_cnt+1'd1;
                     st <= &dump_cnt[2:0] ? 2'd0 : 2'd1;

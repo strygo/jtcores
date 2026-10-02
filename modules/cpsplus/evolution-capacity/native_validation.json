@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "status": "pass",
+  "scope": "bounded_native_memory",
+  "source_revision": "8e73fb10ef1cb8a539ec94db2a0f68ef89eb689c",
+  "patches": {
+    "0001-program-window.patch": "4e1dacaa1c097002c1a1596f033aca9bd92a4bb44d440bcbd94dccb9adaa90b5",
+    "0002-decrypt-range.patch": "5113187aae5dddd71b3a96c0ab06774a2e78ec7c4e6d85101e4603b63833913c",
+    "0003-object-bank-bit.patch": "07a872f140976d505223fc2a6ee66e47bcacd22580216b3b33148f266c6c333e",
+    "0004-sdram-xl.patch": "6c031a19ac7e243f3fd950d395db6bbb1f286f46e8d892a303ff8a6e5f3b762f",
+    "0005-sdram-ncs-constraint.patch": "25c25cd5256c4f8c324993886d0a8e2078860b20b2b6543abf786aa69dfe39e0",
+    "0006-qsound-flat.patch": "2c13942a3ee7d3a96ab418445b150bf8c921e556ea07fa5f7e3ac701e7c5fd32",
+    "0007-full-object-graphics.patch": "dea1e9bf59cb33bda8515749a2e4c8bbe7719534fb6986ff91eed77230c2a1b0",
+    "0008-scroll-tile-bank.patch": "a56b6f48cc993aae2c9d8d6f5e529198f052d54a0df7a077a04b7cca9e63869e",
+    "0009-bounded-native-image.patch": "17873864fb1e25456d45783c45894e35edbfae69b2c5090d8b3482774e1e9d58"
+  },
+  "profile_defines": [
+    "-DCPS2",
+    "-DCPS2_PRG8",
+    "-DCPS2_OBJEXT",
+    "-DJTFRAME_SDRAM_XL",
+    "-DCPS2_QSND24",
+    "-DCPS2_GFX64",
+    "-DCPS2_SCREXT",
+    "-DCPS2_NATIVE128"
+  ],
+  "inputs": {
+    "capacity/run_native_gate.py": "c0f0f5d1bc2fc690398f4e56b8277062c1de5e281d2e8b66bfdf20091994a012",
+    "capacity/image_format.py": "0f6993f1b4c0e00c3df53eb6123de82eb0de05e0e98e421bcc117d743b45cb93",
+    "capacity/host_protocol.json": "4800dab980547280a45c5b37546132a95cf857836d24f5d10a596dba6a53b379",
+    "prepare.py": "c398b0f7e429e76cfb5ce68ef9bfede832744644f99043b9b20f76b8527cc36e",
+    "source.json": "39beadd20463fe14c4809497a65b507efec8f53a5a578158f90b7c6b2f16c08a",
+    "run_gate.py": "6dd7df52cf797396e10bbf079250fe3b81877a62b5e389c27839906bc45648ce",
+    "capacity/run_graphics_gate.py": "051a0aeea6c11b821017fe3b917ce8ecfcdd165a7ad9cfebce07dcb7e8bc015e",
+    "tests/tb_native_loader.sv": "a5d7f0a62a86180238b3d5214cff3a9dcb7baaaadca5f9cfe6e5ac6acdc9756d",
+    "tests/tb_native_hps.sv": "f8134c47185158e0eeca84062d321bc4f27b74b7ee31f76651bafc3fe385aca8",
+    "tests/tb_loader.sv": "f85d4e9660574cf8aea239b651540a4e46259ca6e7ef3c40b2bb3337c84b0aa7",
+    "patches/0001-program-window.patch": "4e1dacaa1c097002c1a1596f033aca9bd92a4bb44d440bcbd94dccb9adaa90b5",
+    "patches/0002-decrypt-range.patch": "5113187aae5dddd71b3a96c0ab06774a2e78ec7c4e6d85101e4603b63833913c",
+    "patches/0003-object-bank-bit.patch": "07a872f140976d505223fc2a6ee66e47bcacd22580216b3b33148f266c6c333e",
+    "patches/0004-sdram-xl.patch": "6c031a19ac7e243f3fd950d395db6bbb1f286f46e8d892a303ff8a6e5f3b762f",
+    "patches/0005-sdram-ncs-constraint.patch": "25c25cd5256c4f8c324993886d0a8e2078860b20b2b6543abf786aa69dfe39e0",
+    "patches/0006-qsound-flat.patch": "2c13942a3ee7d3a96ab418445b150bf8c921e556ea07fa5f7e3ac701e7c5fd32",
+    "capacity/patches/0007-full-object-graphics.patch": "dea1e9bf59cb33bda8515749a2e4c8bbe7719534fb6986ff91eed77230c2a1b0",
+    "capacity/patches/0008-scroll-tile-bank.patch": "a56b6f48cc993aae2c9d8d6f5e529198f052d54a0df7a077a04b7cca9e63869e",
+    "capacity/native-patches/0009-bounded-native-image.patch": "17873864fb1e25456d45783c45894e35edbfae69b2c5090d8b3482774e1e9d58"
+  },
+  "verilator_version": "Verilator 5.050 2026-07-01 rev vUNKNOWN-built20260701",
+  "tests": {
+    "macro_off": [
+      "PASS native isolation: 4 existing files unchanged across 7 macro-off profiles"
+    ],
+    "host_source": [
+      "PASS native host source: pinned Main sends full 32-bit DDR file length at download start"
+    ],
+    "lint": [
+      "PASS lint: jtcps2_game elaborates with CPS2_PRG8 + CPS2_OBJEXT + CPS2_QSND24 + JTFRAME_SDRAM_XL and the MiSTer profile macros (0 errors, 0 extension-width warnings)"
+    ],
+    "native_hps": [
+      "PASS native HPS: real FIO start/end commands, all five high bits, stream-counter overflow, reload rearm; native bus remains 27 bits"
+    ],
+    "loader": [
+      "PASS loader: 65540 CPU mappings, byte lanes, region boundaries, malformed headers, reload",
+      "PASS loader slice: marker 03 = program window + object slice (2565 graphics mappings, 40 MiB region, firmware follows), 01 = program only with slice bytes dropped, wrong region sizes and every marker mutation fail closed, reload clears",
+      "PASS loader qsound: marker 07 = program window + object slice + flat QSound: 1024 sample mappings (16 MiB to bank 1), 8192 firmware bytes before the graphics, 2563 graphics mappings of which 17 above the 64 MiB download boundary, bytes past 40 MiB dropped",
+      "PASS loader qsound off: 05 = flat QSound without the slice (graphics stop at 32 MiB), 8 MiB samples / 16 KiB or misaligned firmware / 4 MiB CPU / stock order / masks 04 06 0f and every single-bit mutation of 07 fail closed (05 alone survives), capability off keeps the stock layout with 16 MiB of samples, reload clears",
+      "PASS loader full graphics: 4111 mappings across all eight banks, 64 MiB bound, old-marker isolation, reload, marker mutations and invalid layouts"
+    ],
+    "native_loader": [
+      "PASS native preflight: 80 header byte mutations, truncation, trailing data, host overflow; zero native writes, reset retained, HPS released"
+    ],
+    "mutation": [
+      "PASS native mutation: disabled preflight header check rejected at native replay"
+    ],
+    "native_loader_cpsplus": [
+      "PASS native preflight: 80 header byte mutations, truncation, trailing data, host overflow; zero native writes, reset retained, HPS released",
+      "PASS native full image: 92545152 exact bytes, 92536832 SDRAM writes, 8192 DSP bytes; all regions/banks/lanes, DDR stalls, final acknowledgment, digest=a6afe400",
+      "PASS native reload: valid to invalid stays reset, error rearmed on new download",
+      "PASS native legacy DDR reload: 64-byte header and 4096 CPU bytes exact; invalid to legacy recovery on same core"
+    ]
+  },
+  "hardware_validated": false,
+  "cpk_support": false,
+  "qualification": {
+    "date": "2026-10-01",
+    "core_and_gate_rebuilt_from_empty_external_scratch": true,
+    "whole_game_elaboration": true,
+    "full_synthetic_file_bytes": 92545152,
+    "native_sdram_byte_writes": 92536832,
+    "native_dsp_distinct_byte_writes": 8192,
+    "header_byte_mutations": 80,
+    "final_write_stalled_at_least_cycles": 100,
+    "valid_invalid_legacy_reload": true,
+    "native_sample_playback_qualified": false,
+    "production_builder_migrated": false,
+    "new_rbf_built": false,
+    "hardware_validated": false
+  }
+}

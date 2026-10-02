@@ -28,17 +28,34 @@ wire        snd_cs, qsnd_cs,
 wire        obank;  // OBJ bank
 wire [15:0] oram_base;
 wire [18:0] snd_addr;
+`ifdef CPS2_QSND24
+wire [23:0] qsnd_addr; // flat 24-bit QSound sample address (16 MiB library)
+`else
 wire [22:0] qsnd_addr;
+`endif
 wire        prog_qsnd;
 wire [ 7:0] snd_data, qsnd_data;
 wire [17:1] ram_addr;
+`ifdef CPS2_PRG8
+wire [22:1] main_rom_addr;
+wire        prog_ext;
+`else
 wire [21:1] main_rom_addr;
+`endif
 wire [15:0] main_ram_data, main_rom_data, main_dout, mmr_dout;
 wire        main_rom_ok, main_ram_ok;
 wire        ppu1_cs, ppu2_cs, ppu_rstn, objcfg_cs;
 wire        raster;
 wire [19:0] rom1_addr, rom0_addr;
+`ifdef CPS2_SCREXT
+wire        rom1_ext;
+`endif
+`ifdef CPS2_OBJEXT
+wire [ 2:0] rom0_bank;
+wire        gfx_oram_ext, obj_ext;
+`else
 wire [ 1:0] rom0_bank;
+`endif
 wire [31:0] rom0_data, rom1_data;
 // Video RAM interface
 wire [17:1] vram_dma_addr;
@@ -128,6 +145,9 @@ wire busack_cpu;
 assign busack = busack_cpu | turbo;
 
 jtcps2_main u_main(
+`ifdef CPS2_PRG8
+    .prog_ext    ( prog_ext         ),
+`endif
     .rst        ( rst_game          ),
     .clk_rom    ( clk               ),
     .clk        ( clk48             ),
@@ -217,6 +237,9 @@ end
 assign dip_flip = video_flip;
 
 jtcps1_video #(REGSIZE) u_video(
+`ifdef CPS2_OBJEXT
+    .oram_ext       ( gfx_oram_ext  ),
+`endif
     .rst            ( rst_video     ),
     .clk            ( clk_gfx       ),
     .clk_cpu        ( clk48         ),
@@ -291,6 +314,9 @@ jtcps1_video #(REGSIZE) u_video(
     .vram_rfsh_en   ( vram_rfsh_en  ),
 
     // GFX ROM interface
+`ifdef CPS2_SCREXT
+    .rom1_ext       ( rom1_ext      ),
+`endif
     .rom1_addr      ( rom1_addr     ),
     .rom1_half      ( rom1_half     ),
     .rom1_data      ( rom1_data     ),
@@ -521,6 +547,13 @@ jtframe_limsum #(.WI(16), .K(2)) u_cpsp_mixr(
 `endif
 /* verilator tracing_on */
 jtcps1_sdram #(.CPS(2), .REGSIZE(REGSIZE)) u_sdram (
+`ifdef CPS2_PRG8
+    .cps2_prog_ext ( prog_ext       ),
+`endif
+`ifdef CPS2_OBJEXT
+    .cps2_obj_ext  ( obj_ext        ),
+    .gfx_oram_ext  ( gfx_oram_ext   ),
+`endif
     .rst         ( rst_sdram     ),
     .clk         ( clk           ),
     .clk_gfx     ( clk_gfx       ),
@@ -533,7 +566,13 @@ jtcps1_sdram #(.CPS(2), .REGSIZE(REGSIZE)) u_sdram (
     .cfg_we      ( cfg_we        ),
 
     // ROM LOAD
+`ifdef CPS2_QSND24
+    .ioctl_addr  ( ioctl_addr    ), // all 27 bits: a flat QSound image with the object slice is 64.25 MiB
+`elsif CPS2_OBJEXT
+    .ioctl_addr  ( ioctl_addr[25:0] ), // 27-bit bus under JTFRAME_SDRAM_XL; images stay below 64 MiB
+`else
     .ioctl_addr  ( ioctl_addr    ),
+`endif
     .ioctl_dout  ( ioctl_dout    ),
     .ioctl_din   ( ioctl_din     ),
     .ioctl_wr    ( ioctl_wr      ),
@@ -616,6 +655,9 @@ jtcps1_sdram #(.CPS(2), .REGSIZE(REGSIZE)) u_sdram (
 
     .rom0_addr   ( rom0_addr     ),
     .rom0_bank   ( rom0_bank     ),
+`ifdef CPS2_SCREXT
+    .rom1_ext    ( rom1_ext      ),
+`endif
     .rom1_addr   ( rom1_addr     ),
 
     .rom0_half   ( rom0_half     ),

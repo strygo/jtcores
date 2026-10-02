@@ -1,0 +1,584 @@
+diff --git a/cores/cps1/hdl/jtcps1_obj_draw.v b/cores/cps1/hdl/jtcps1_obj_draw.v
+index ea1dc6721c50e2cf1ef8c9476cea19db660bef0f..51347736fc177c99aa4809f3d18622fbb46ca6cd 100644
+--- a/cores/cps1/hdl/jtcps1_obj_draw.v
++++ b/cores/cps1/hdl/jtcps1_obj_draw.v
+@@ -23,7 +23,11 @@ module jtcps1_obj_draw (
+     input      [15:0]  obj_code,
+     input      [15:0]  obj_attr,
+     input      [ 8:0]  obj_hpos,
++`ifdef CPS2_OBJEXT
++    input      [ 2:0]  obj_bank,
++`else
+     input      [ 1:0]  obj_bank,
++`endif
+     `ifdef CPS2
+     input      [ 2:0]  obj_prio,
+     output reg [ 2:0]  buf_prio,
+@@ -38,7 +42,11 @@ module jtcps1_obj_draw (
+ 
+     // ROM interface
+     output reg [19:0]  rom_addr,    // up to 1 MB
++`ifdef CPS2_OBJEXT
++    output reg [ 2:0]  rom_bank,
++`else
+     output reg [ 1:0]  rom_bank,
++`endif
+     output reg         rom_half,    // selects which half to read
+     input      [31:0]  rom_data,
+     output reg         rom_cs,
+@@ -86,7 +94,7 @@ always @(posedge clk, posedge rst) begin
+         draw       <= 0;
+         wait_cycle <= 0;
+         draw_cnt   <= 8'h0;
+-        rom_bank   <= 2'd0;
++        rom_bank   <= 0;
+         pxl_data   <= 0;
+     end else begin
+         wait_cycle <= 0;
+@@ -102,7 +110,7 @@ always @(posedge clk, posedge rst) begin
+                 half       <= 1;    // which half are we drawing?
+             end else begin
+                 rom_cs   <= 0;
+-                rom_bank <= 2'd0;
++                rom_bank <= 0;
+             end
+         end
+         if( draw ) begin
+diff --git a/cores/cps1/hdl/jtcps1_prom_we.v b/cores/cps1/hdl/jtcps1_prom_we.v
+index b58d4b718f78b67b02c7e2d588b66f6bbb6b1094..985b24bf6fe52d33111b1fa3945a0525c8a3a550 100644
+--- a/cores/cps1/hdl/jtcps1_prom_we.v
++++ b/cores/cps1/hdl/jtcps1_prom_we.v
+@@ -31,7 +31,11 @@ parameter [ 5:0] CFG_BYTE   =6'd39  // location of the byte with encoder informa
+     input      [ 7:0]    ioctl_dout,
+     input                ioctl_wr,
+     input                ioctl_ram,
++`ifdef CPS2_OBJEXT
++    output reg [23:0]    prog_addr, // 128 MiB module: bank 2 holds the object slice above 16 MiB
++`else
+     output reg [22:0]    prog_addr,
++`endif
+     output     [15:0]    prog_data,
+     output reg [ 1:0]    prog_mask, // active low
+     output reg [ 1:0]    prog_ba,
+@@ -48,6 +52,9 @@ parameter [ 5:0] CFG_BYTE   =6'd39  // location of the byte with encoder informa
+ `ifdef CPS2_PRG8
+     ,output reg         cps2_prog_ext = 1'b0
+ `endif
++`ifdef CPS2_OBJEXT
++    ,output reg         cps2_obj_ext = 1'b0
++`endif
+ );
+ 
+ assign dwnld_busy = ioctl_rom;
+@@ -107,16 +114,33 @@ always @(posedge clk) begin
+     if (ioctl_wr && ioctl_rom && !ioctl_ram) begin
+         if (ioctl_addr==0) begin
+             cps2_prog_ext <= 0;
++`ifdef CPS2_OBJEXT
++            cps2_obj_ext  <= 0;
++`endif
+             ext_header_step <= 0;
+         end else if (ioctl_addr==12) begin
+             cps2_prog_ext <= 0;
++`ifdef CPS2_OBJEXT
++            cps2_obj_ext  <= 0;
++`endif
+             ext_header_step <= ioctl_dout==8'h43 ? 1 : 0;
+         end else if (ioctl_addr==13) begin
+             ext_header_step <= ext_header_step==1 && ioctl_dout==8'h32 ? 2 : 0;
+         end else if (ioctl_addr==14) begin
+             ext_header_step <= ext_header_step==2 && ioctl_dout==8'h01 ? 3 : 0;
+         end else if (ioctl_addr==15) begin
++`ifdef CPS2_OBJEXT
++            // Byte 15 is a capability mask: 01 = program window, 03 = program
++            // window plus the 8 MiB object extension slice. 03 additionally
++            // requires a graphics region of exactly 40 MiB (32 MiB library +
++            // slice). Any other value or an incomplete marker fails closed.
++            cps2_prog_ext <= ext_header_step==3 && snd_start==16'h2000 &&
++                             (ioctl_dout==8'h01 || (ioctl_dout==8'h03 && gfx_slice_ok));
++            cps2_obj_ext  <= ext_header_step==3 && snd_start==16'h2000 &&
++                             ioctl_dout==8'h03 && gfx_slice_ok;
++`else
+             cps2_prog_ext <= ext_header_step==3 && ioctl_dout==8'h01 && snd_start==16'h2000;
++`endif
+             ext_header_step <= 0;
+         end
+     end
+@@ -128,6 +152,22 @@ wire [22:0] cpu_phys = cpu_addr[23:1];
+ wire cpu_allowed = 1'b1;
+ `endif
+ 
++`ifdef CPS2_OBJEXT
++// Object extension slice: graphics region byte offsets 32..40 MiB keep the
++// bank-2/bit-22 rule of the 32 MiB library and set SDRAM word address bit 23,
++// so they land in bank 2 bytes 16..24 MiB, where the OBJ slot reads tile code
++// bit 18 (ext=1, bank bits 00). Region starts are 16-bit KiB counts, so the
++// 40 MiB region still fits the stock header; without the capability the
++// bytes above 32 MiB are dropped instead of overwriting the library.
++wire        gfx_slice_ok  = (qsnd_start - gfx_start) == 16'ha000;
++wire        gfx_slice     = cps2_obj_ext && gfx_addr[25];
++wire [23:0] gfx_phys      = {gfx_slice, gfx_addr[24], gfx_addr[22:1]};
++wire        gfx_allowed   = !is_gfx || !gfx_addr[25] || cps2_obj_ext;
++`else
++wire [22:0] gfx_phys      = {gfx_addr[24], gfx_addr[22:1]};
++wire        gfx_allowed   = 1'b1;
++`endif
++
+ reg       decrypt, pang3, pang3_bit;
+ reg [7:0] pang3_decrypt;
+ 
+@@ -171,7 +211,7 @@ always @(posedge clk) begin
+         prog_addr <= is_cpu ? cpu_phys + CPU_OFFSET : (
+                      is_snd ?  snd_addr[23:1] + SND_OFFSET : (
+                      is_oki ?  pcm_addr[23:1] + PCM_OFFSET :
+-                     is_gfx ?  {gfx_addr[24],gfx_addr[22:1]} + GFX_OFFSET : {10'd0, bulk_addr[12:0]}));
++                     is_gfx ?  gfx_phys + GFX_OFFSET : {10'd0, bulk_addr[12:0]}));
+         prog_ba   <= (is_cpu||is_snd) ? 2'd0 : ( is_gfx ? gfx_bank : 2'd1 );
+         if( is_kabuki )
+             kabuki_sr <= 2'b11;
+@@ -192,7 +232,7 @@ always @(posedge clk) begin
+                     {decrypt, pang3_bit} <= ioctl_dout[7:6];
+             end else if(ioctl_addr>=FULL_HEADER) begin
+                 cfg_we    <= 1'b0;
+-                prog_we   <= ~is_qsnd && cpu_allowed;
++                prog_we   <= ~is_qsnd && cpu_allowed && gfx_allowed;
+                 prom_we   <=  is_qsnd;
+             end else if( ioctl_addr[5:0] == JOY_BYTE ) begin
+                 joymode <= ioctl_dout[1:0]; // only CPS2
+diff --git a/cores/cps1/hdl/jtcps1_sdram.v b/cores/cps1/hdl/jtcps1_sdram.v
+index 93c8c61e8e4f03a74334bebce69b0e4ebc8a4929..01bdb3ae7f688bff607f8727209bcf7c23f89c56 100644
+--- a/cores/cps1/hdl/jtcps1_sdram.v
++++ b/cores/cps1/hdl/jtcps1_sdram.v
+@@ -20,7 +20,12 @@ module jtcps1_sdram #( parameter
+            CPS     = 1,
+            REGSIZE = 24,
+            Z80_AW  = CPS==1 ? 16 : 19,
+-           PCM_AW  = CPS==1 ? 18 : 23
++           PCM_AW  = CPS==1 ? 18 : 23,
++`ifdef CPS2_OBJEXT
++           SDRAMW  = 24 // 128 MiB module (JTFRAME_SDRAM_XL): object slice in bank 2 above 16 MiB
++`else
++           SDRAMW  = 23
++`endif
+ ) (
+     input           rst,
+     input           clk,        // SDRAM clock (48/96)
+@@ -39,7 +44,7 @@ module jtcps1_sdram #( parameter
+     output  [ 7:0]  ioctl_din,
+     input           ioctl_wr,
+     input           ioctl_ram,
+-    output  [22:0]  prog_addr,
++    output  [SDRAMW-1:0] prog_addr,
+     output  [15:0]  prog_data,
+     output  [ 1:0]  prog_mask,
+     output  [ 1:0]  prog_ba,
+@@ -69,6 +74,10 @@ module jtcps1_sdram #( parameter
+     input    [21:0] main_rom_addr,
+ `else
+     input    [20:0] main_rom_addr,
++`endif
++`ifdef CPS2_OBJEXT
++    output          cps2_obj_ext,  // image declares the object extension slice
++    output          gfx_oram_ext,  // extension bit of the object entry the frame copy is reading
+ `endif
+     output   [15:0] main_rom_data,
+ 
+@@ -123,7 +132,11 @@ module jtcps1_sdram #( parameter
+     output          rom1_ok,
+ 
+     input    [19:0] rom0_addr,
++`ifdef CPS2_OBJEXT
++    input    [ 2:0] rom0_bank,  // {extension bit, y[14:13]}
++`else
+     input    [ 1:0] rom0_bank,
++`endif
+     input    [19:0] rom1_addr,
+ 
+     input           rom0_half,
+@@ -144,10 +157,10 @@ module jtcps1_sdram #( parameter
+     input             star1_cs,
+ 
+     // Bank 0: allows R/W
+-    output   [22:0] ba0_addr,
+-    output   [22:0] ba1_addr,
+-    output   [22:0] ba2_addr,
+-    output   [22:0] ba3_addr,
++    output   [SDRAMW-1:0] ba0_addr,
++    output   [SDRAMW-1:0] ba1_addr,
++    output   [SDRAMW-1:0] ba2_addr,
++    output   [SDRAMW-1:0] ba3_addr,
+     output   [ 3:0] ba_rd,
+     output   [ 3:0] ba_wr,
+     output   [15:0] ba0_din,
+@@ -201,9 +214,9 @@ localparam EEPROM_AW=7, EEPROM_DW=8;
+ localparam EEPROM_AW=6, EEPROM_DW=16;
+ `endif
+ 
+-(*keep*) wire [22:0] cps2_gfx0;
++(*keep*) wire [SDRAMW-1:0] cps2_gfx0;
+ wire [21:0] gfx1_addr, gfx0_addr;
+-wire [22:0] main_offset;
++wire [SDRAMW-1:0] main_offset;
+ wire        ram_vram_cs;
+ wire        ba2_rdy_gfx, ba2_ack_gfx;
+ reg  [20:1] main_addr_x; // main addr modified for object bank access
+@@ -252,6 +265,9 @@ jtcps1_prom_we #(
+ ) u_prom_we(
+ `ifdef CPS2_PRG8
+     .cps2_prog_ext   ( cps2_prog_ext ),
++`endif
++`ifdef CPS2_OBJEXT
++    .cps2_obj_ext    ( cps2_obj_ext  ),
+ `endif
+     .clk            ( clk           ),
+     .ioctl_rom      ( ioctl_rom     ),
+@@ -275,8 +291,43 @@ jtcps1_prom_we #(
+     .joymode        ( cps2_joymode  )
+ );
+ 
++`ifdef CPS2_OBJEXT
++`ifndef JTFRAME_SDRAM_XL
++    // The slice needs 24-bit SDRAM word addresses (128 MiB module).
++    `CPS2_OBJEXT_requires_JTFRAME_SDRAM_XL
++`endif
++// Object extension bits: one per entry of each physical object RAM bank.
++// Written beside the CPU's object RAM writes (any word or byte of the entry
++// decides: CPU A14 set = alias window = 1, clear = normal window = 0) and
++// read by the frame copy at the entry it is copying, so the bit is latched
++// with the four words of the entry. Cleared during reset like the SDRAM
++// object table. Held at zero while the image does not declare the slice.
++reg  [10:0] objext_clr = 0;
++wire        objext_we  = rst | (main_oram_cs & ~main_rnw & ~&dsn);
++wire [10:0] objext_wa  = rst ? objext_clr : {main_ram_addr[15]^obank, main_ram_addr[12:3]};
++wire        objext_din = ~rst & main_ram_addr[14] & cps2_obj_ext;
++wire        objext_q;
++
++assign gfx_oram_ext = objext_q & cps2_obj_ext;
++
++always @(posedge clk) objext_clr <= rst ? objext_clr+1'd1 : 11'd0;
++
++jtframe_dual_ram #(.DW(1),.AW(11)) u_objext(
++    .clk0   ( clk           ),
++    .data0  ( objext_din    ),
++    .addr0  ( objext_wa     ),
++    .we0    ( objext_we     ),
++    .q0     (               ),
++    .clk1   ( clk_gfx       ),
++    .data1  ( 1'b0          ),
++    .addr1  ( { gfx_oram_addr[12], gfx_oram_addr[11:2] } ),
++    .we1    ( 1'b0          ),
++    .q1     ( objext_q      )
++);
++`endif
++
+ jtframe_ram1_5slots #(
+-    .SDRAMW      ( 23            ),
++    .SDRAMW      ( SDRAMW        ),
+     .SLOT0_ERASE (  1            ),
+     .SLOT0_AW    ( 20            ), // Main CPU RAM
+     .SLOT0_DW    ( 16            ),
+@@ -354,7 +405,7 @@ jtframe_ram1_5slots #(
+ );
+ 
+ jtframe_rom_1slot #(
+-    .SDRAMW      ( 23            ),
++    .SDRAMW      ( SDRAMW        ),
+     .SLOT0_AW    ( PCM_AW        ), // PCM
+     .SLOT0_DW    (  8            )
+ ) u_bank1 (
+@@ -378,6 +429,22 @@ wire [ 1:0] objgfx_cs, objgfx_ok;
+ wire [31:0] objgfx_dout0, objgfx_dout1;
+ 
+ `ifdef CPS2
++`ifdef CPS2_OBJEXT
++    // Tile code bit 18 (the object extension bit) becomes SDRAM word address
++    // bit 23 of the same OBJ slot: with bank bits 00 that is the 8 MiB slice
++    // at bank 2 bytes 16..24 MiB (image graphics offsets 32..40 MiB). ext=1
++    // with bank bits != 00 is reserved for the 64 MiB library: it draws
++    // transparent without an SDRAM access. Capability off: stock mapping.
++    wire ext_sel   = rom0_bank[2] & cps2_obj_ext;
++    wire ext_blank = ext_sel & |rom0_bank[1:0];
++    assign objgfx_cs = {2{rom0_cs & ~ext_blank}} & { rom0_bank[0], ~rom0_bank[0] };
++    assign cps2_gfx0 = { ext_sel, rom0_bank[1], gfx0_addr };
++
++    always @(*) begin
++        rom0_ok   = ext_blank ? 1'b1 : (rom0_bank[0] ? objgfx_ok[1] : objgfx_ok[0]);
++        rom0_data = ext_blank ? 32'hffff_ffff : (rom0_bank[0] ? objgfx_dout1 : objgfx_dout0);
++    end
++`else
+     assign objgfx_cs = {2{rom0_cs}} & { rom0_bank[0], ~rom0_bank[0] };
+     assign cps2_gfx0 = { rom0_bank[1], gfx0_addr };
+ 
+@@ -385,11 +452,12 @@ wire [31:0] objgfx_dout0, objgfx_dout1;
+         rom0_ok   = rom0_bank[0] ? objgfx_ok[1] : objgfx_ok[0];
+         rom0_data = rom0_bank[0] ? objgfx_dout1 : objgfx_dout0;
+     end
++`endif
+ 
+     jtframe_rom_1slot #(
+-        .SDRAMW      ( 23            ),
++        .SDRAMW      ( SDRAMW        ),
+         // Slot 0: Obj
+-        .SLOT0_AW    ( 23            ),
++        .SLOT0_AW    ( SDRAMW        ),
+         .SLOT0_DW    ( 32            ),
+         .SLOT0_DOUBLE( 1             ),
+         .SLOT0_LATCH ( OBJ_LATCH     )
+@@ -415,7 +483,7 @@ wire [31:0] objgfx_dout0, objgfx_dout1;
+         rom0_ok   = objgfx_ok[1];
+         rom0_data = objgfx_dout1;
+     end
+-    assign cps2_gfx0 = { 1'b0, gfx0_addr };
++    assign cps2_gfx0 = { {SDRAMW-22{1'b0}}, gfx0_addr };
+     assign ba_rd[2] = 0;
+     assign ba2_addr = 0;
+ `endif
+@@ -425,9 +493,9 @@ wire [21:0] gfx_star0 = { 1'b0, star_bank, 5'd0, star0_addr, 2'b00 },
+             gfx_star1 = { 1'b0, star_bank, 5'd0, star1_addr, 2'b10 };
+ 
+ jtframe_rom_4slots #(
+-    .SDRAMW      ( 23            ),
++    .SDRAMW      ( SDRAMW        ),
+     // Slot 0: Obj
+-    .SLOT0_AW    ( 23            ),
++    .SLOT0_AW    ( SDRAMW        ),
+     .SLOT0_DW    ( 32            ),
+     .SLOT0_OFFSET( ZERO_OFFSET   ),
+     .SLOT0_LATCH ( OBJ_LATCH     ),
+diff --git a/cores/cps1/hdl/jtcps1_video.v b/cores/cps1/hdl/jtcps1_video.v
+index 28629c187d5844445bc935d25f9df468b6133837..6ae9f6f19c4906cf083f9d058b95de53b27979a0 100644
+--- a/cores/cps1/hdl/jtcps1_video.v
++++ b/cores/cps1/hdl/jtcps1_video.v
+@@ -42,6 +42,9 @@ module jtcps1_video(
+     output             oram_clr,
+     output             oram_cs,
+     input      [15:0]  oram_data,
++`ifdef CPS2_OBJEXT
++    input              oram_ext,
++`endif
+     `endif
+ 
+     // CPU interface
+@@ -100,7 +103,11 @@ module jtcps1_video(
+     input              rom1_ok,
+ 
+     output     [19:0]  rom0_addr,
++`ifdef CPS2_OBJEXT
++    output     [ 2:0]  rom0_bank,
++`else
+     output     [ 1:0]  rom0_bank,
++`endif
+     output             rom0_half,    // selects which half to read
+     input      [31:0]  rom0_data,
+     output             rom0_cs,
+@@ -519,6 +526,9 @@ assign scr3_pxl   = 11'h1ff;
+     assign rom0_bank = 2'b10;
+ `else
+     jtcps2_obj u_obj(
++`ifdef CPS2_OBJEXT
++        .oram_ext   ( oram_ext      ),
++`endif
+         .rst        ( rst           ),
+         .clk        ( clk           ),
+         .clk_cpu    ( clk_cpu       ),
+diff --git a/cores/cps2/hdl/jtcps2_game.v b/cores/cps2/hdl/jtcps2_game.v
+index aeeb8594c9b9ed65765b67136cce4eddbd8c3d19..02c43308f2c09de88305b7f6fb639aeecab06008 100644
+--- a/cores/cps2/hdl/jtcps2_game.v
++++ b/cores/cps2/hdl/jtcps2_game.v
+@@ -43,7 +43,12 @@ wire        main_rom_ok, main_ram_ok;
+ wire        ppu1_cs, ppu2_cs, ppu_rstn, objcfg_cs;
+ wire        raster;
+ wire [19:0] rom1_addr, rom0_addr;
++`ifdef CPS2_OBJEXT
++wire [ 2:0] rom0_bank;
++wire        gfx_oram_ext, obj_ext;
++`else
+ wire [ 1:0] rom0_bank;
++`endif
+ wire [31:0] rom0_data, rom1_data;
+ // Video RAM interface
+ wire [17:1] vram_dma_addr;
+@@ -225,6 +230,9 @@ end
+ assign dip_flip = video_flip;
+ 
+ jtcps1_video #(REGSIZE) u_video(
++`ifdef CPS2_OBJEXT
++    .oram_ext       ( gfx_oram_ext  ),
++`endif
+     .rst            ( rst_video     ),
+     .clk            ( clk_gfx       ),
+     .clk_cpu        ( clk48         ),
+@@ -531,6 +539,10 @@ jtframe_limsum #(.WI(16), .K(2)) u_cpsp_mixr(
+ jtcps1_sdram #(.CPS(2), .REGSIZE(REGSIZE)) u_sdram (
+ `ifdef CPS2_PRG8
+     .cps2_prog_ext ( prog_ext       ),
++`endif
++`ifdef CPS2_OBJEXT
++    .cps2_obj_ext  ( obj_ext        ),
++    .gfx_oram_ext  ( gfx_oram_ext   ),
+ `endif
+     .rst         ( rst_sdram     ),
+     .clk         ( clk           ),
+@@ -544,7 +556,11 @@ jtcps1_sdram #(.CPS(2), .REGSIZE(REGSIZE)) u_sdram (
+     .cfg_we      ( cfg_we        ),
+ 
+     // ROM LOAD
++`ifdef CPS2_OBJEXT
++    .ioctl_addr  ( ioctl_addr[25:0] ), // 27-bit bus under JTFRAME_SDRAM_XL; images stay below 64 MiB
++`else
+     .ioctl_addr  ( ioctl_addr    ),
++`endif
+     .ioctl_dout  ( ioctl_dout    ),
+     .ioctl_din   ( ioctl_din     ),
+     .ioctl_wr    ( ioctl_wr      ),
+diff --git a/cores/cps2/hdl/jtcps2_obj.v b/cores/cps2/hdl/jtcps2_obj.v
+index 7ee89ada9c1bffc68402cd81c397c4760b37776a..8d0f417ce3dc85e4b4597b0440abe62858e90e41 100644
+--- a/cores/cps2/hdl/jtcps2_obj.v
++++ b/cores/cps2/hdl/jtcps2_obj.v
+@@ -37,6 +37,9 @@ module jtcps2_obj(
+     output             oram_clr,
+     output             oram_cs,
+     input      [15:0]  oram_data,
++`ifdef CPS2_OBJEXT
++    input              oram_ext,   // extension bit of the entry being copied
++`endif
+ 
+     input              obank,
+ 
+@@ -46,7 +49,11 @@ module jtcps2_obj(
+     input      [ 8:0]  hdump,
+ 
+     output     [19:0]  rom_addr,    // up to 1 MB
++`ifdef CPS2_OBJEXT
++    output     [ 2:0]  rom_bank,    // {extension bit, y[14:13]}
++`else
+     output     [ 1:0]  rom_bank,
++`endif
+     output             rom_half,    // selects which half to read
+     input      [31:0]  rom_data,
+     output             rom_cs,
+@@ -58,7 +65,12 @@ module jtcps2_obj(
+ wire [15:0] dr_code, dr_attr;
+ wire [ 8:0] dr_hpos;
+ wire [ 2:0] dr_prio, buf_prio;
++`ifdef CPS2_OBJEXT
++wire [ 2:0] dr_bank;
++wire        obj_ext;
++`else
+ wire [ 1:0] dr_bank;
++`endif
+ 
+ wire        dr_start, dr_idle;
+ 
+@@ -102,6 +114,10 @@ jtcps2_obj_frame u_frame(
+ );
+ 
+ jtcps2_objram u_objram(
++`ifdef CPS2_OBJEXT
++    .ext_din    ( oram_ext      ),
++    .obj_ext    ( obj_ext       ),
++`endif
+     .rst        ( rst           ),
+     .clk_cpu    ( clk           ),  // use GFX as it is driven by u_frame
+     .clk_gfx    ( clk           ),
+@@ -133,6 +149,9 @@ jtcps2_objram u_objram(
+ );
+ 
+ jtcps2_obj_scan u_scan(
++`ifdef CPS2_OBJEXT
++    .table_ext  ( obj_ext       ),
++`endif
+     .rst        ( rst           ),
+     .clk        ( clk           ),
+     .flip       ( flip          ),
+diff --git a/cores/cps2/hdl/jtcps2_obj_scan.v b/cores/cps2/hdl/jtcps2_obj_scan.v
+index 2af60f386193362024dc5dc9a77ad4f385aa0603..b0df5c98ba12261710ba6576ef26885a6b009ecf 100644
+--- a/cores/cps2/hdl/jtcps2_obj_scan.v
++++ b/cores/cps2/hdl/jtcps2_obj_scan.v
+@@ -35,6 +35,9 @@ module jtcps2_obj_scan(
+     input      [15:0]  table_y,
+     input      [15:0]  table_code,
+     input      [15:0]  table_attr,
++`ifdef CPS2_OBJEXT
++    input              table_ext,
++`endif
+ 
+     // interface with renderer
+     output reg         dr_start,    // dr for "draw"
+@@ -44,7 +47,11 @@ module jtcps2_obj_scan(
+     output reg [15:0]  dr_attr,
+     output reg [ 8:0]  dr_hpos,
+     output reg [ 2:0]  dr_prio,
++`ifdef CPS2_OBJEXT
++    output reg [ 2:0]  dr_bank   // {extension bit, y[14:13]}
++`else
+     output reg [ 1:0]  dr_bank
++`endif
+ );
+ 
+ reg  [ 9:0] mapper_in;
+@@ -53,7 +60,11 @@ reg  [ 8:0] vrenderf;
+ reg  [ 9:0] obj_y, obj_x;
+ wire [15:0] code_mn;
+ wire [ 9:0] st4_effx;
++`ifdef CPS2_OBJEXT
++reg  [ 2:0] st3_bank, st4_bank;
++`else
+ reg  [ 1:0] st3_bank, st4_bank;
++`endif
+ reg  [ 2:0] st3_prio, st4_prio;
+ wire        start;
+ 
+@@ -154,7 +165,11 @@ always @(posedge clk, posedge rst) begin
+                 st3_y    <= done ? 10'd0 : table_y[9:0] + 10'h10 - (table_attr[7] ? 10'd0 : off_y);
+                 st3_attr <= done ? 16'd0 : table_attr;
+                 st3_prio <= table_x[15:13];
++`ifdef CPS2_OBJEXT
++                st3_bank <= { table_ext, table_y[14:13] };
++`else
+                 st3_bank <= table_y[14:13];
++`endif
+             end
+         // III
+             st4_attr <= st3_attr;
+diff --git a/cores/cps2/hdl/jtcps2_objram.v b/cores/cps2/hdl/jtcps2_objram.v
+index 97886fee519294d81977663dd43f0e016494018b..d37f881fc88a1b91550a5259705785c662521982 100644
+--- a/cores/cps2/hdl/jtcps2_objram.v
++++ b/cores/cps2/hdl/jtcps2_objram.v
+@@ -49,6 +49,10 @@ module jtcps2_objram(
+     input    [ 1:0] dsn,
+     input    [15:0] oram_din,
+     input    [13:1] main_addr,
++`ifdef CPS2_OBJEXT
++    input           ext_din,   // extension bit stored with every entry word written
++    output          obj_ext,
++`endif
+     // output   [15:0] dout2cpu,
+ 
+     // Interface with OBJ engine
+@@ -168,6 +172,25 @@ jtframe_dual_ram16 #(.AW(AW-2)) u_attr(
+     .q1         ( obj_attr     )
+ );
+ 
++`ifdef CPS2_OBJEXT
++// Fifth lane: the object extension bit, latched with the entry. Any write to
++// any word (or byte) of the entry stores ext_din; cleared with x/y on reset.
++wire we_ext = cs & ~&dsn;
++
++jtframe_dual_ram #(.DW(1),.AW(AW-2)) u_ext(
++    .clk0       ( clk_cpu      ),
++    .data0      ( ext_din      ),
++    .addr0      ( wr_addr      ),
++    .we0        ( we_ext       ),
++    .q0         (              ),
++    .clk1       ( clk_gfx      ),
++    .data1      ( 1'b0         ),
++    .addr1      ( amux         ),
++    .we1        ( asel         ),
++    .q1         ( obj_ext      )
++);
++`endif
++
+ jtframe_dual_ram16 #(.AW(AW-2)) u_code(
+     .clk0       ( clk_cpu      ),
+     .clk1       ( clk_gfx      ),
