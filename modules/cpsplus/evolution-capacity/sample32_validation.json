@@ -33,7 +33,8 @@
     "cpsplus/evolution/capacity/patches/0008-scroll-tile-bank.patch": "a56b6f48cc993aae2c9d8d6f5e529198f052d54a0df7a077a04b7cca9e63869e",
     "cpsplus/evolution/capacity/native-patches/0009-bounded-native-image.patch": "17873864fb1e25456d45783c45894e35edbfae69b2c5090d8b3482774e1e9d58",
     "cpsplus/evolution/capacity/native-patches/0010-synchronous-download-rearm.patch": "8e3e310810d57a3f981b1f51502e01cb40a89ecba84539538719001bf770ac11",
-    "cpsplus/evolution/capacity/sample32-patches/0011-native-qsound32.patch": "40a66908aa6ef172cdf1202f9f9c48c69d89542b33448d93423e3040f756c2f9"
+    "cpsplus/evolution/capacity/sample32-patches/0011-native-qsound32.patch": "40a66908aa6ef172cdf1202f9f9c48c69d89542b33448d93423e3040f756c2f9",
+    "cpsplus/evolution/capacity/sample32-patches/0012-verilog-rom-word-address.patch": "5447e92cd8284b31ed8d5c24482d8d8f41411f1b1087e0da64fdb62d984ffe14"
   },
   "source_revision": "8e73fb10ef1cb8a539ec94db2a0f68ef89eb689c",
   "submodules": {
@@ -56,7 +57,7 @@
     "cores/cps2/hdl/jtcps2_obj_scan.v": "18b50f802e426f9a9c4d7ed149ad62173804abfd43048b620f902424436ac4cf",
     "cores/cps2/hdl/jtcps2_objram.v": "eb687c11bb16bde75a69a52a975b1bac0940e6c32ba0858dbc00cba916676224",
     "modules/jtframe/hdl/inc/jtframe_cps2_native.vh": "406911c3dc7bd883414b119a5270e960b4de7db5c3efbd9e69c9d3fcc31633da",
-    "modules/jtframe/hdl/sdram/jtframe_romrq_bcache.v": "b2e050b3615c664ea9b53dfe2115346d94b007bda00e9017b657c4bf045b533c",
+    "modules/jtframe/hdl/sdram/jtframe_romrq_bcache.v": "af1843a4db9aae57a23699a044ce3179876cd7770639676203b340adbf3efe5d",
     "modules/jtframe/hdl/sdram/jtframe_sdram64.v": "a80bdb375731f2d862e1f37f877df05cb127eef48a73ee9bba7cf7be7ba6f298",
     "modules/jtframe/hdl/sdram/jtframe_sdram64_bank.v": "9029fc5807bb22f2d90fd6aa512120fc7889768068b17a1349096e4a6cd18707",
     "modules/jtframe/hdl/sdram/jtframe_sdram64_latch.v": "f83d09116046fa3f082a9a2ebeaaec70db34fae136b88abeab47461e242010f0",
@@ -68,13 +69,13 @@
   },
   "simulation_binary_sha256": {
     "obj_loader/Vtb_loader": "434c7598b1143105091b6f66c2c11c99490b9989a584dba9a9907b4e3ceeb2bd",
-    "obj_loader32/Vtb_native_loader": "438142b3fe5e1717c132cd1b1de84592166e8b9b90b4a8b6f626a40a0ebcc47f",
-    "obj_loader32_cpsplus/Vtb_native_loader": "2da5a500749d5a96fd00591ee95516a8779f5a94257933f59c53d4137554a437",
+    "obj_loader32/Vtb_native_loader": "0ceef54aa0a10a9bb207959cc1559e4f765cac8b8e81735ad937eb931030b30c",
+    "obj_loader32_cpsplus/Vtb_native_loader": "b06666aaa8f9b528fcad005ead44429824028f5b53d2d105c776101fe5573066",
     "obj_native_hps/Vtb_native_hps": "12952aa71d7849adc7503e1822d4e8bbe3bf882fb1e412d773c627b269d1dce2",
-    "obj_obj_xl/Vtb_obj": "d724f163f2dc2affcbb68d1a23275a0aa44d9ea6c87369bb080d393ff55f85f1",
+    "obj_obj_xl/Vtb_obj": "857d95c35277eb5a21e45e2a74b822cfa0d63c0df0743a41592480fbbea5350d",
     "obj_program/Vtb_program": "de17a84d122bcc4b8a55239cff25ce11d78dd5355265e4c2523e68f95d4fcb36",
-    "obj_sample32_runtime/Vtb_sample32_runtime": "993e75ef1a365254369599ed8a2a9f2ce406551bed321c792f89336607441534",
-    "obj_scroll/Vtb_scroll": "791b1ee62973bb7ea63289c255c52dc3bc819956a7e20b368a82f0a770886bab"
+    "obj_sample32_runtime/Vtb_sample32_runtime": "6e093e0bf633e52c48d2992829d61445ad219868c0941bdbc7fc0b2f29cde73f",
+    "obj_scroll/Vtb_scroll": "edbd1b197ffb1ddb6d25eb7416ec169046151cd9aadfbb28883723158482c87b"
   },
   "dsp_firmware": {
     "member": "dl-1425.bin",
@@ -96,7 +97,8 @@
     "0008-scroll-tile-bank.patch": "a56b6f48cc993aae2c9d8d6f5e529198f052d54a0df7a077a04b7cca9e63869e",
     "0009-bounded-native-image.patch": "17873864fb1e25456d45783c45894e35edbfae69b2c5090d8b3482774e1e9d58",
     "0010-synchronous-download-rearm.patch": "8e3e310810d57a3f981b1f51502e01cb40a89ecba84539538719001bf770ac11",
-    "0011-native-qsound32.patch": "40a66908aa6ef172cdf1202f9f9c48c69d89542b33448d93423e3040f756c2f9"
+    "0011-native-qsound32.patch": "40a66908aa6ef172cdf1202f9f9c48c69d89542b33448d93423e3040f756c2f9",
+    "0012-verilog-rom-word-address.patch": "5447e92cd8284b31ed8d5c24482d8d8f41411f1b1087e0da64fdb62d984ffe14"
   },
   "defines": [
     "-DCPS2",

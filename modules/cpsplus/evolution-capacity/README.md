@@ -5,7 +5,7 @@ This isolated source export builds the 8 MiB program / 64 MiB graphics /
 QSound firmware, voices, tile/object formats and arbitration. No CPK support
 is added. Native version 2 and legacy images retain their sample masks.
 
-The complete eleven-patch series, pinned base/submodules, functional RTL
+The complete twelve-patch series, pinned base/submodules, functional RTL
 receipt and source manifest are included here. Run `verify_export.py --root`
 against the checkout before building. It replays every patch and rejects
 undeclared tree changes. No Capcom checkout or prior scratch output is needed.
