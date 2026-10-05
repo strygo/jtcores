@@ -33,11 +33,11 @@ jobs:
           TRIALS: ${{ inputs.trials }}
         run: |
           extra='-d CPS2_PRG8 -d CPS2_OBJEXT -d CPS2_QSND24 -d JTFRAME_SDRAM_XL -u JTFRAME_SDRAM_LARGE -d CPS2_GFX64 -d CPS2_SCREXT -d CPS2_NATIVE128 -d CPS2_QSND32 -d CPS2_UNIFIED -d CPSPLUS_EXTENT -u JTFRAME_LF_BUFFER'
-          docker run --rm --platform linux/amd64 --network host \
+          docker run --rm --platform linux/amd64 --network host --entrypoint /bin/bash \
             -e CORE=cps2 -e SKIP_STOCK=1 -e SEED="$SEED" -e TRIALS="$TRIALS" \
             -e JTCORE_EXTRA="$extra" -v "$PWD":/jtcores \
             jotego/jtcore20@sha256:58a69912d36b33952253c6c7245bf80ada8ae000084a03e6479d46e9e913baec \
-            /bin/bash -c 'python3 /jtcores/modules/cpsplus/evolution-unified/check_build_sources.py --root /jtcores --work /jtcores/build-source-check && /jtcores/.github/scripts/fitter_ab.sh /jtcores /jtcores/fitter_results'
+            -c 'python3 /jtcores/modules/cpsplus/evolution-unified/check_build_sources.py --root /jtcores --work /jtcores/build-source-check && /jtcores/.github/scripts/fitter_ab.sh /jtcores /jtcores/fitter_results'
       - name: Name the candidate and include provenance
         if: always()
         run: |
