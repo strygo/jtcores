@@ -71,7 +71,14 @@ reg          hit0, hit1;
 reg          dend, double, cache_ok;
 wire [AW-1:0] shifted;
 
+`ifdef CPS2_QSND32
+// An 8-bit ROM consumer has one more byte-address bit than SDRAM words.
+localparam ROM_WORD_AW = AW-(DW==8);
+wire [ROM_WORD_AW-1:0] rom_word_addr = addr_req[AW-1:(DW==8)];
+assign sdram_addr = offset + {{SDRAMW-ROM_WORD_AW{1'b0}},rom_word_addr};
+`else
 assign sdram_addr = offset + { {SDRAMW-AW{1'b0}}, addr_req>>(DW==8)};
+`endif
 assign data_ok    = cache_ok && {hit1,hit0}==hitl && (hit1 || hit0);
 
 always @(*) begin

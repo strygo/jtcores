@@ -1,0 +1,253 @@
+diff --git a/cores/cps1/hdl/jtcps1_prom_we.v b/cores/cps1/hdl/jtcps1_prom_we.v
+index a49be4d24aa9c44425eb4a0765dc0d84b94ebc11..b58d4b718f78b67b02c7e2d588b66f6bbb6b1094 100644
+--- a/cores/cps1/hdl/jtcps1_prom_we.v
++++ b/cores/cps1/hdl/jtcps1_prom_we.v
+@@ -45,6 +45,9 @@ parameter [ 5:0] CFG_BYTE   =6'd39  // location of the byte with encoder informa
+     // CPS2 keys
+     output reg           cps2_key_we,
+     output reg [ 1:0]    joymode
++`ifdef CPS2_PRG8
++    ,output reg         cps2_prog_ext = 1'b0
++`endif
+ );
+ 
+ assign dwnld_busy = ioctl_rom;
+@@ -95,6 +98,36 @@ wire is_oki    = bulk_addr[25:10] < gfx_start  && bulk_addr[25:10] >=pcm_start;
+ wire is_gfx    = bulk_addr[25:10] < qsnd_start && bulk_addr[25:10] >=gfx_start;
+ wire is_qsnd   = ioctl_addr >= FULL_HEADER && bulk_addr[25:10] >=qsnd_start; // Q-Sound ROM
+ 
++`ifdef CPS2_PRG8
++// Prototype header bytes 12..15: "C2", version 1, program capability 1.
++// A fresh download clears authorization at byte 0; a user reset retains it.
++// Only a complete, ordered marker with an exact 8 MiB CPU region enables it.
++reg [2:0] ext_header_step = 0;
++always @(posedge clk) begin
++    if (ioctl_wr && ioctl_rom && !ioctl_ram) begin
++        if (ioctl_addr==0) begin
++            cps2_prog_ext <= 0;
++            ext_header_step <= 0;
++        end else if (ioctl_addr==12) begin
++            cps2_prog_ext <= 0;
++            ext_header_step <= ioctl_dout==8'h43 ? 1 : 0;
++        end else if (ioctl_addr==13) begin
++            ext_header_step <= ext_header_step==1 && ioctl_dout==8'h32 ? 2 : 0;
++        end else if (ioctl_addr==14) begin
++            ext_header_step <= ext_header_step==2 && ioctl_dout==8'h01 ? 3 : 0;
++        end else if (ioctl_addr==15) begin
++            cps2_prog_ext <= ext_header_step==3 && ioctl_dout==8'h01 && snd_start==16'h2000;
++            ext_header_step <= 0;
++        end
++    end
++end
++wire [22:0] cpu_phys = cps2_prog_ext ? {cpu_addr[22], 1'b0, cpu_addr[21:1]} : cpu_addr[23:1];
++wire cpu_allowed = !is_cpu || (cps2_prog_ext ? bulk_addr<26'h0800000 : bulk_addr<26'h0400000);
++`else
++wire [22:0] cpu_phys = cpu_addr[23:1];
++wire cpu_allowed = 1'b1;
++`endif
++
+ reg       decrypt, pang3, pang3_bit;
+ reg [7:0] pang3_decrypt;
+ 
+@@ -135,7 +168,7 @@ always @(posedge clk) begin
+         pre_data  <= pang3 ?
+             pang3_decrypt : ioctl_dout;
+         prog_mask <= !ioctl_addr[0] ? 2'b10 : 2'b01;
+-        prog_addr <= is_cpu ? bulk_addr[23:1] + CPU_OFFSET : (
++        prog_addr <= is_cpu ? cpu_phys + CPU_OFFSET : (
+                      is_snd ?  snd_addr[23:1] + SND_OFFSET : (
+                      is_oki ?  pcm_addr[23:1] + PCM_OFFSET :
+                      is_gfx ?  {gfx_addr[24],gfx_addr[22:1]} + GFX_OFFSET : {10'd0, bulk_addr[12:0]}));
+@@ -159,7 +192,7 @@ always @(posedge clk) begin
+                     {decrypt, pang3_bit} <= ioctl_dout[7:6];
+             end else if(ioctl_addr>=FULL_HEADER) begin
+                 cfg_we    <= 1'b0;
+-                prog_we   <= ~is_qsnd;
++                prog_we   <= ~is_qsnd && cpu_allowed;
+                 prom_we   <=  is_qsnd;
+             end else if( ioctl_addr[5:0] == JOY_BYTE ) begin
+                 joymode <= ioctl_dout[1:0]; // only CPS2
+@@ -178,4 +211,4 @@ always @(posedge clk) begin
+     end
+ end
+ 
+-endmodule
+\ No newline at end of file
++endmodule
+diff --git a/cores/cps1/hdl/jtcps1_sdram.v b/cores/cps1/hdl/jtcps1_sdram.v
+index 863e52acf09662fab6343df42f958fe7dc9bcb41..93c8c61e8e4f03a74334bebce69b0e4ebc8a4929 100644
+--- a/cores/cps1/hdl/jtcps1_sdram.v
++++ b/cores/cps1/hdl/jtcps1_sdram.v
+@@ -64,7 +64,12 @@ module jtcps1_sdram #( parameter
+     // Main CPU
+     input           main_rom_cs,
+     output          main_rom_ok,
++`ifdef CPS2_PRG8
++    output          cps2_prog_ext,
++    input    [21:0] main_rom_addr,
++`else
+     input    [20:0] main_rom_addr,
++`endif
+     output   [15:0] main_rom_data,
+ 
+     // VRAM
+@@ -205,6 +210,16 @@ reg  [20:1] main_addr_x; // main addr modified for object bank access
+ reg         ocache_clr, obank_last;
+ wire        dump_we;
+ 
++`ifdef CPS2_PRG8
++// Byte offsets 4..8 MiB contain VRAM, objects, work RAM and sound ROM.
++// Widen the slot AND its cache tags to retain the physical extension bit.
++localparam MAIN_ROM_AW = 23;
++wire [22:0] main_rom_phys = {main_rom_addr[21], 1'b0, main_rom_addr[20:0]};
++`else
++localparam MAIN_ROM_AW = 21;
++wire [20:0] main_rom_phys = main_rom_addr;
++`endif
++
+ 
+ assign gfx0_addr   = {rom0_addr, rom0_half, 1'b0 }; // OBJ
+ assign gfx1_addr   = {rom1_addr, rom1_half, 1'b0 };
+@@ -235,6 +250,9 @@ jtcps1_prom_we #(
+     .PCM_OFFSET ( PCM_OFFSET    ),
+     .SND_OFFSET ( SND_OFFSET    )
+ ) u_prom_we(
++`ifdef CPS2_PRG8
++    .cps2_prog_ext   ( cps2_prog_ext ),
++`endif
+     .clk            ( clk           ),
+     .ioctl_rom      ( ioctl_rom     ),
+     .ioctl_addr     ( ioctl_addr    ),
+@@ -276,7 +294,7 @@ jtframe_ram1_5slots #(
+     .SLOT2_DOUBLE(  1            ),
+     .SLOT2_OFFSET( ORAM_OFFSET   ),
+ 
+-    .SLOT3_AW    ( 21            ), // Main CPU ROM
++    .SLOT3_AW    ( MAIN_ROM_AW   ), // Main CPU ROM, including physical cache tags
+     .SLOT3_DW    ( 16            ),
+     .SLOT3_LATCH (  1            ),
+     .SLOT3_DOUBLE(  1            ),
+@@ -314,7 +332,7 @@ jtframe_ram1_5slots #(
+     .slot0_addr  ( main_addr_x   ),
+     .slot1_addr  ( vram_dma_addr ),
+     .slot2_addr  ( gfx_oram_addr ),
+-    .slot3_addr  ( main_rom_addr ),
++    .slot3_addr  ( main_rom_phys ),
+     .slot4_addr  ( snd_addr      ),
+ 
+     .slot0_dout  ( main_ram_data ),
+@@ -483,4 +501,4 @@ jt9346_16b8b #(.DW(EEPROM_DW),.AW(EEPROM_AW)) u_eeprom(
+     .dump_clr   ( ioctl_ram )
+ );
+ 
+-endmodule
+\ No newline at end of file
++endmodule
+diff --git a/cores/cps2/hdl/jtcps2_game.v b/cores/cps2/hdl/jtcps2_game.v
+index e93457f86513da9570be76df198646694417f1b4..aeeb8594c9b9ed65765b67136cce4eddbd8c3d19 100644
+--- a/cores/cps2/hdl/jtcps2_game.v
++++ b/cores/cps2/hdl/jtcps2_game.v
+@@ -32,7 +32,12 @@ wire [22:0] qsnd_addr;
+ wire        prog_qsnd;
+ wire [ 7:0] snd_data, qsnd_data;
+ wire [17:1] ram_addr;
++`ifdef CPS2_PRG8
++wire [22:1] main_rom_addr;
++wire        prog_ext;
++`else
+ wire [21:1] main_rom_addr;
++`endif
+ wire [15:0] main_ram_data, main_rom_data, main_dout, mmr_dout;
+ wire        main_rom_ok, main_ram_ok;
+ wire        ppu1_cs, ppu2_cs, ppu_rstn, objcfg_cs;
+@@ -128,6 +133,9 @@ wire busack_cpu;
+ assign busack = busack_cpu | turbo;
+ 
+ jtcps2_main u_main(
++`ifdef CPS2_PRG8
++    .prog_ext    ( prog_ext         ),
++`endif
+     .rst        ( rst_game          ),
+     .clk_rom    ( clk               ),
+     .clk        ( clk48             ),
+@@ -521,6 +529,9 @@ jtframe_limsum #(.WI(16), .K(2)) u_cpsp_mixr(
+ `endif
+ /* verilator tracing_on */
+ jtcps1_sdram #(.CPS(2), .REGSIZE(REGSIZE)) u_sdram (
++`ifdef CPS2_PRG8
++    .cps2_prog_ext ( prog_ext       ),
++`endif
+     .rst         ( rst_sdram     ),
+     .clk         ( clk           ),
+     .clk_gfx     ( clk_gfx       ),
+diff --git a/cores/cps2/hdl/jtcps2_main.v b/cores/cps2/hdl/jtcps2_main.v
+index 33c9e0232887fe6aea2c02ca270347969fa456cc..5116bb2cbc666eb4f30b1d667cef340f88d65134 100644
+--- a/cores/cps2/hdl/jtcps2_main.v
++++ b/cores/cps2/hdl/jtcps2_main.v
+@@ -65,7 +65,12 @@ module jtcps2_main(
+     input              ram_ok,
+     // ROM access
+     output reg         rom_cs,
++`ifdef CPS2_PRG8
++    input              prog_ext,
++    output reg  [22:1] rom_addr,
++`else
+     output reg  [21:1] rom_addr,
++`endif
+     input       [15:0] rom_data,
+     input              rom_ok,
+     // DIP switches
+@@ -108,6 +113,14 @@ reg         in0_cs, in1_cs, in2_cs, vol_cs, out_cs, obank_cs;
+ 
+ wire [15:0] rom_dec;
+ 
++// Plaintext 4 MiB extension. SDRAM mapping skips the RAM allocation.
++`ifdef CPS2_PRG8
++wire ext_window = prog_ext && A[23:21]>=3'b101 && A[23:21]<=3'b110;
++wire [2:0] decrypt_fc = ext_window ? 3'b101 : FC;
++`else
++wire [2:0] decrypt_fc = FC;
++`endif
++
+ wire        dec_en;
+ wire        BRn, BGACKn, BGn;
+ wire        ASn;
+@@ -176,14 +189,19 @@ always @(posedge clk, posedge rst) begin
+         pre_vram_cs <= 1'b0;
+         pre_oram_cs <= 1'b0;
+         io_cs        <= 1'b0;
+-        rom_addr     <= 21'd0;
++        rom_addr     <= 0;
+         objcfg_cs    <= 0;
+         main2qs_cs   <= 0;
+         main2qs_addr <= 23'd0;
+     end else begin
+         if( !ASn && BGACKn ) begin // PAL PRG1 12H
++`ifdef CPS2_PRG8
++            rom_addr    <= ext_window ? {1'b1, ~A[21], A[20:1]} : {1'b0, A[21:1]};
++            rom_cs      <= A[23:22] == 2'b00 || (ext_window && RnW);
++`else
+             rom_addr    <= A[21:1];
+             rom_cs      <= A[23:22] == 2'b00;
++`endif
+             pre_ram_cs  <= &A[23:16];
+             pre_vram_cs <= A[23:18] == 6'b1001_00 && A[17:16]!=2'b11;
+             pre_oram_cs <= A[23:20] == 4'h7 && A[19:16]==oram_base[11:8];
+@@ -389,7 +407,7 @@ jtcps2_decrypt u_decrypt(
+     .prog_we    ( key_we    ),
+ 
+     // Control
+-    .fc         ( FC        ),
++    .fc         ( decrypt_fc),
+ 
+     .dec_en     ( dec_en    ),
+ 
+@@ -490,7 +508,7 @@ initial begin
+     obank        = 1'b0;
+     oram_base    = 16'd0;
+     rom_cs       = 1'b0;
+-    rom_addr     = 21'd0;
++    rom_addr     = 0;
+     eeprom_sclk  = 1'b0;
+     eeprom_sdi   = 1'b0;
+     eeprom_scs   = 1'b0;

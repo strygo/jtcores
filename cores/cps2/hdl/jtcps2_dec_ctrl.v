@@ -39,7 +39,11 @@ assign rom_ok_out = ok_sh[0];
 wire op_fetch = fc[1:0]==2'b10;
 
 always @(posedge clk) begin
-    en_latch <= op_fetch && en && (addr[14+:10] <= range[9:0]);
+    // The key's encrypted range covers 16 KiB pages 0..~field (MAME cps2crypt:
+    // upper = ((~field & 0x3ff) << 14 | 0x3fff) + 1). Comparing against the raw
+    // field decrypted every page of the 4 MiB window, so opcode fetches above
+    // the bound (plaintext on MAME) were garbled here. Data reads never decrypt.
+    en_latch <= op_fetch && en && (addr[14+:10] <= ~range[9:0]);
     ok_sh    <= { ok_sh[0], rom_ok };
     dout     <= en_latch ? dec : din;
 end

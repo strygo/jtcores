@@ -1,0 +1,489 @@
+diff --git a/modules/jtframe/hdl/sdram/jtframe_sdram64.v b/modules/jtframe/hdl/sdram/jtframe_sdram64.v
+index ae22ccdfb5afba08287287090701d693000f5e41..a94a96e1e168d7947e96651805831c50c8497d03 100644
+--- a/modules/jtframe/hdl/sdram/jtframe_sdram64.v
++++ b/modules/jtframe/hdl/sdram/jtframe_sdram64.v
+@@ -134,8 +134,19 @@ wire        all_act, rfshing, rfsh_br, noreq, help;
+ reg         all_dbusy, all_dbusy64;
+ reg   [3:0] bg, cmd;
+ reg  [14:0] prio_lfsr;
++`ifdef JTFRAME_SDRAM_XL
++wire [12:0] bx0_a, bx1_a, bx2_a, bx3_a, init_a, next_a, rfsh_a;
++wire [(AW==24?14:13)-1:0] ba0_row, ba1_row, ba2_row, ba3_row; // AW==24: {chip, row}
++// 128 MiB module (AW==24): two 64 MiB chips behind the single SDRAM_nCS pin,
++// which the module inverts for the second chip. Every command source names
++// the chip it addresses in parallel with its command; the grant mux selects
++// it like the command and the pair is registered together.
++wire        bx0_chip, bx1_chip, bx2_chip, bx3_chip, pre_chip, init_chip, rfsh_chip, next_chip;
++reg         ncs_r;
++`else
+ wire [12:0] bx0_a, bx1_a, bx2_a, bx3_a, init_a, next_a, rfsh_a,
+             ba0_row, ba1_row, ba2_row, ba3_row;
++`endif
+ wire [ 1:0] next_ba, prio;
+ wire [15:0] din;
+ 
+@@ -156,7 +167,17 @@ reg  [ 1:0] dqm;
+ wire [ 1:0] mask_mux;
+ wire        all_dqm, prog_busy, pre_br;
+ 
++`ifdef JTFRAME_SDRAM_XL
++// SDRAM_nCS on the 128 MiB module (SDRAM XS-DS): the header pin drives U1's
++// CS# directly and U2's CS# through an inverter, so nCS low addresses chip 0
++// (word address bit 23 = 0) and nCS high addresses chip 1. Exactly one chip
++// decodes every command; NOP is RAS/CAS/WE high at either level and
++// CMD_INHIBIT must never be issued (it would be a LOAD MODE on the other chip).
++assign {sdram_nras, sdram_ncas, sdram_nwe } = cmd[2:0];
++assign sdram_ncs = ncs_r;
++`else
+ assign {sdram_ncs, sdram_nras, sdram_ncas, sdram_nwe } = cmd;
++`endif
+ assign {sdram_dqmh, sdram_dqml} = MISTER ? sdram_a[12:11] : dqm;
+ assign sdram_cke = 1;
+ assign all_act     = |post_act;
+@@ -196,6 +217,22 @@ always @(posedge clk) if( next_is_act != (next_cmd==CMD_ACTIVE) ) begin
+ end
+ `endif
+ 
++`ifdef JTFRAME_SDRAM_XL
++assign next_chip =      init ? init_chip : (
++                      rfshing? rfsh_chip : (
++                      prog_en? pre_chip  : (
++                       bg[3] ? bx3_chip  : (
++                       bg[2] ? bx2_chip  : (
++                       bg[1] ? bx1_chip  :
++                               bx0_chip  )))));
++`ifdef SIMULATION
++always @(posedge clk) if( AW==24 && cmd[3] ) begin
++    $display("%m ASSERT FAIL: CMD_INHIBIT is not a NOP on the dual-chip module");
++    $finish;
++end
++`endif
++`endif
++
+ assign prio     = prio_lfsr[1:0];
+ assign mask_mux = prog_en ? prog_dsn :
+                   (bg[3] && BA3_WEN) ? ba3_dsn :
+@@ -233,6 +270,9 @@ always @(posedge clk) begin
+     dok      <= ba_dok;
+     dout     <= sdram_dq;
+     cmd      <= next_cmd;
++`ifdef JTFRAME_SDRAM_XL
++    ncs_r    <= next_cmd[3] ^ next_chip;
++`endif
+ 
+     // prog signals
+     prog_dst <= pre_dst;
+@@ -296,6 +336,34 @@ jtframe_sdram64_latch #(.LATCH(LATCH),.AW(AW)) u_latch(
+     .noreq      ( noreq     )
+ );
+ 
++`ifdef JTFRAME_SDRAM_XL
++// AW==24: the initialization sequence runs once per chip and every refresh
++// slot precharges and refreshes both chips
++jtframe_sdram64_init #(.HF(HF),.BURSTLEN(BURSTLEN),.XL(AW==24)) u_init(
++    .rst        ( rst       ),
++    .clk        ( clk       ),
++
++    .init       ( init      ),
++    .chip       ( init_chip ),
++    .cmd        ( init_cmd  ),
++    .sdram_a    ( init_a    )
++);
++
++jtframe_sdram64_rfsh #(.HF(HF),.RFSHCNT(RFSHCNT),.BOTH(AW==24)) u_rfsh(
++    .rst        ( rfsh_rst  ),
++    .clk        ( clk       ),
++
++    .start      ( rfsh      ),
++    .br         ( rfsh_br   ),
++    .bg         ( rfsh_bg   ),
++    .noreq      ( noreq     ),
++    .rfshing    ( rfshing   ),
++    .chip       ( rfsh_chip ),
++    .cmd        ( rfsh_cmd  ),
++    .help       ( help      ),
++    .sdram_a    ( rfsh_a    )
++);
++`else
+ jtframe_sdram64_init #(.HF(HF),.BURSTLEN(BURSTLEN)) u_init(
+     .rst        ( rst       ),
+     .clk        ( clk       ),
+@@ -320,6 +388,7 @@ jtframe_sdram64_rfsh #(.HF(HF),.RFSHCNT(RFSHCNT)) u_rfsh(
+     .help       ( help      ),
+     .sdram_a    ( rfsh_a    )
+ );
++`endif
+ 
+ jtframe_sdram64_bank #(
+     .AW       ( AW      ),
+@@ -369,6 +438,9 @@ jtframe_sdram64_bank #(
+     .bg         ( prog_bg    ), // bus grant
+ 
+     .sdram_a    ( pre_a      ),
++`ifdef JTFRAME_SDRAM_XL
++    .chip       ( pre_chip   ),
++`endif
+     .cmd        ( pre_cmd    )
+ );
+ 
+@@ -417,6 +489,9 @@ jtframe_sdram64_bank #(
+     .bg         ( bg[0]      ), // bus grant
+ 
+     .sdram_a    ( bx0_a      ),
++`ifdef JTFRAME_SDRAM_XL
++    .chip       ( bx0_chip   ),
++`endif
+     .cmd        ( bx0_cmd    ),
+     .act        ( bx0_act    )
+ );
+@@ -465,6 +540,9 @@ jtframe_sdram64_bank #(
+     .bg         ( bg[1]      ), // bus grant
+ 
+     .sdram_a    ( bx1_a      ),
++`ifdef JTFRAME_SDRAM_XL
++    .chip       ( bx1_chip   ),
++`endif
+     .cmd        ( bx1_cmd    ),
+     .act        ( bx1_act    )
+ );
+@@ -513,6 +591,9 @@ jtframe_sdram64_bank #(
+     .bg         ( bg[2]      ), // bus grant
+ 
+     .sdram_a    ( bx2_a      ),
++`ifdef JTFRAME_SDRAM_XL
++    .chip       ( bx2_chip   ),
++`endif
+     .cmd        ( bx2_cmd    ),
+     .act        ( bx2_act    )
+ );
+@@ -561,6 +642,9 @@ jtframe_sdram64_bank #(
+     .bg         ( bg[3]      ), // bus grant
+ 
+     .sdram_a    ( bx3_a      ),
++`ifdef JTFRAME_SDRAM_XL
++    .chip       ( bx3_chip   ),
++`endif
+     .cmd        ( bx3_cmd    ),
+     .act        ( bx3_act    )
+ );
+diff --git a/modules/jtframe/hdl/sdram/jtframe_sdram64_bank.v b/modules/jtframe/hdl/sdram/jtframe_sdram64_bank.v
+index 1a41419faede47b698355c3f99ee20f56aee8641..30d51e921d55c3f0ba2462684f2e65493576437d 100644
+--- a/modules/jtframe/hdl/sdram/jtframe_sdram64_bank.v
++++ b/modules/jtframe/hdl/sdram/jtframe_sdram64_bank.v
+@@ -58,7 +58,11 @@ module jtframe_sdram64_bank #(
+     input               all_act,
+ 
+     // row matching
++`ifdef JTFRAME_SDRAM_XL
++    output reg  [(AW==24?14:13)-1:0]  row, // AW==24: {chip, row}
++`else
+     output reg  [12:0]  row,
++`endif
+     input               match,
+ 
+     // SDRAM interface
+@@ -77,11 +81,26 @@ module jtframe_sdram64_bank #(
+     // design (bank FSM -> grant mux -> A[12:11] DDIO register at the pin).
+     // Exporting the 1-bit decode lets the top select it in parallel with
+     // the address instead.  Same logic, one cycle, no protocol change.
++`ifdef JTFRAME_SDRAM_XL
++    // AW==24 (128 MiB module, two 64 MiB chips): the chip that cmd addresses,
++    // word address bit AW-1, valid with cmd. The top level turns it into
++    // SDRAM_nCS (chip 0 = nCS low, chip 1 = nCS high, inverted on the module).
++    // Constant 0 for every other AW.
++    output              chip,
++`endif
+     output reg          act
+ );
+ 
+ localparam ROW=13,
+            COW= AW==22 ? 9 : 10; // 9 for 32MB SDRAM, 10 for 64MB
++`ifdef JTFRAME_SDRAM_XL
++// 128 MiB module: two 64 MiB chips sharing every pin but the chip select.
++// Word address bit AW-1 selects the chip; the lower 23 bits split into row,
++// column and A[9] exactly as the 64 MiB (AW=23) case. Bank N of chip 0 and
++// bank N of chip 1 are two different SDRAM banks behind this one FSM, so the
++// open-row record carries the chip bit and every command carries it too.
++localparam XL = AW==24;
++`endif
+ 
+ // states
+ localparam IDLE    = 0,
+@@ -115,7 +134,17 @@ initial begin
+ end
+ `endif
+ */
++`ifdef JTFRAME_SDRAM_XL
++reg            actd, prechd_s;
++// PRECHARGE_ALL (the programmer): a precharge-all command only reaches the
++// addressed chip, so the "all banks precharged" flag is kept per chip and the
++// first access to the other chip precharges that chip too before activating.
++reg      [1:0] prechd_c;
++wire           prechd = (XL && PRECHARGE_ALL[0]) ? prechd_c[chip] : prechd_s;
++wire [(AW==24?14:13)-1:0] new_row; // what an ACTIVATE opens: {chip, row} for AW==24
++`else
+ reg            actd, prechd;
++`endif
+ wire [ROW-1:0] addr_row;
+ reg  [STW-1:0] st, next_st, rot_st;
+ reg            last_act;
+@@ -127,6 +156,23 @@ reg            do_prech, do_act, do_read, written;
+ reg            in_busy, in_busy64;
+ 
+ // SDRAM pins
++`ifdef JTFRAME_SDRAM_XL
++assign ack      = st[READ],
++       dst      = st[DST] | (st[READ] & wr),
++       dbusy    = |{in_busy, do_read},
++       dbusy64  = READONLY ? dbusy : |{in_busy64, do_read},
++       rdy      = (written && !AUTOPRECH) ? st[READ] : st[RDY],
++       addr_row = XL ? addr[AW-3:AW-2-ROW] : (AW==22 ? addr[AW-1:AW-ROW] : addr[AW-2:AW-1-ROW]),
++       chip     = XL ? addr[AW-1] : 1'b0,
++       rd_wr    = rd | wr,
++       idle     = st[0];
++
++generate if( XL ) begin : g_xlrow
++    assign new_row = { addr[AW-1], addr_row };
++end else begin : g_row
++    assign new_row = addr_row;
++end endgenerate
++`else
+ assign ack      = st[READ],
+        dst      = st[DST] | (st[READ] & wr),
+        dbusy    = |{in_busy, do_read},
+@@ -135,6 +181,7 @@ assign ack      = st[READ],
+        addr_row = AW==22 ? addr[AW-1:AW-ROW] : addr[AW-2:AW-1-ROW],
+        rd_wr    = rd | wr,
+        idle     = st[0];
++`endif
+ 
+ always @(posedge clk) begin
+     if( rst ) begin
+@@ -217,6 +264,61 @@ generate
+ endgenerate
+ 
+ // module outputs
++`ifdef JTFRAME_SDRAM_XL
++always @(*) begin
++    wr_busy = do_read & wr;
++    cmd = do_prech ? CMD_PRECHARGE : (
++          do_act   ? CMD_ACTIVE    : (
++          do_read  ? (rd ? CMD_READ : CMD_WRITE ) : CMD_NOP ));
++    act = ~do_prech & do_act;   // == (cmd==CMD_ACTIVE), by the priority above
++    sdram_a[12:11] =  addr_row[12:11];
++    // column A[9] is the top word bit below the chip bit: addr[22] for AW==24, as addr[22] is for AW==23
++    sdram_a[10:0] = do_act ? addr_row[10:0] :
++            { do_read ? AUTOPRECH[0] : PRECHARGE_ALL[0], XL ? addr[AW-2] : addr[AW-1], addr[8:0]};
++end
++
++always @(posedge clk) begin
++    if( rst ) begin
++        prechd_s <= 0;
++        prechd_c <= 0;
++        actd     <= 0;
++        row      <= 0;
++        st       <= 1; // IDLE
++        last_act <= 0;
++        written  <= 0;
++    end else begin
++        st       <= next_st;
++        if( do_act ) begin
++            post_act <= 1;
++            last_act <= 1;
++        end else begin
++            last_act <= 0;
++            post_act <= last_act;
++        end
++
++        if( do_act ) begin
++            row     <= new_row;
++            prechd_s <= 0;
++            prechd_c[chip] <= 0;
++            actd    <= 1;
++        end
++
++        if( do_read ) written <= wr;
++            else if(st[0]) written<=0;
++
++        if( do_prech || (do_read && AUTOPRECH)) begin
++            prechd_s <= 1;
++            prechd_c[chip] <= 1;
++            actd   <= 0;
++        end
++        if( set_prech ) begin // the refresh slot precharged all banks of both chips
++            prechd_s <= 1;
++            prechd_c <= 2'b11;
++            actd     <= 0;
++        end
++    end
++end
++`else
+ always @(*) begin
+     wr_busy = do_read & wr;
+     cmd = do_prech ? CMD_PRECHARGE : (
+@@ -261,5 +363,6 @@ always @(posedge clk) begin
+         end
+     end
+ end
++`endif
+ 
+ endmodule
+diff --git a/modules/jtframe/hdl/sdram/jtframe_sdram64_latch.v b/modules/jtframe/hdl/sdram/jtframe_sdram64_latch.v
+index 257a5d1fbfc38731929de7d2c8f716ea259385f4..3c1804fe32efb89699bce8d801424ea6f12657b9 100644
+--- a/modules/jtframe/hdl/sdram/jtframe_sdram64_latch.v
++++ b/modules/jtframe/hdl/sdram/jtframe_sdram64_latch.v
+@@ -27,10 +27,17 @@ module jtframe_sdram64_latch #(parameter LATCH=0, AW=22)(
+     output reg [AW-1:0] ba1_addr_l,
+     output reg [AW-1:0] ba2_addr_l,
+     output reg [AW-1:0] ba3_addr_l,
++`ifdef JTFRAME_SDRAM_XL
++    input      [(AW==24?14:13)-1:0] ba0_row, // AW==24: {chip, row}
++    input      [(AW==24?14:13)-1:0] ba1_row,
++    input      [(AW==24?14:13)-1:0] ba2_row,
++    input      [(AW==24?14:13)-1:0] ba3_row,
++`else
+     input      [  12:0] ba0_row,
+     input      [  12:0] ba1_row,
+     input      [  12:0] ba2_row,
+     input      [  12:0] ba3_row,
++`endif
+     input         [3:0] rd,
+     input         [3:0] wr,
+     input         [3:0] rdy,
+@@ -43,6 +50,73 @@ module jtframe_sdram64_latch #(parameter LATCH=0, AW=22)(
+     output reg          noreq
+ );
+ 
++`ifdef JTFRAME_SDRAM_XL
++localparam XL   = AW==24,
++           RMSB = AW==22 ? AW-1 : (XL ? AW-3 : AW-2),
++           RLSB = RMSB-12,
++           RW   = XL ? 14 : 13;
++
++wire prog_rq = prog_en &(prog_wr | prog_rd);
++
++// The open-row key of a request. AW==24 (128 MiB module) adds the chip bit:
++// bank N of chip 0 and bank N of chip 1 are different SDRAM banks, so a row
++// open in one chip must not count as a hit for the other.
++wire [RW-1:0] ba0_key, ba1_key, ba2_key, ba3_key;
++
++generate if( XL ) begin : g_xlkey
++    assign ba0_key = { ba0_addr[AW-1], ba0_addr[RMSB:RLSB] };
++    assign ba1_key = { ba1_addr[AW-1], ba1_addr[RMSB:RLSB] };
++    assign ba2_key = { ba2_addr[AW-1], ba2_addr[RMSB:RLSB] };
++    assign ba3_key = { ba3_addr[AW-1], ba3_addr[RMSB:RLSB] };
++end else begin : g_key
++    assign ba0_key = ba0_addr[RMSB:RLSB];
++    assign ba1_key = ba1_addr[RMSB:RLSB];
++    assign ba2_key = ba2_addr[RMSB:RLSB];
++    assign ba3_key = ba3_addr[RMSB:RLSB];
++end endgenerate
++
++generate
++    if( LATCH==1 ) begin
++        always @(posedge clk) begin
++            if( rst ) begin
++                ba0_addr_l <= 0;
++                ba1_addr_l <= 0;
++                ba2_addr_l <= 0;
++                ba3_addr_l <= 0;
++                wr_l       <= 0;
++                rd_l       <= 0;
++                noreq      <= 1;
++            end else begin
++                ba0_addr_l <= ba0_addr;
++                ba1_addr_l <= ba1_addr;
++                ba2_addr_l <= ba2_addr;
++                ba3_addr_l <= ba3_addr;
++                match[0]   <= ba0_key===ba0_row;
++                match[1]   <= ba1_key===ba1_row;
++                match[2]   <= ba2_key===ba2_row;
++                match[3]   <= ba3_key===ba3_row;
++                wr_l       <= wr & ~rdy;
++                rd_l       <= rd;
++                noreq      <= ~|{wr,rd,prog_rq};
++            end
++        end
++    end else begin
++        always @(*) begin
++                ba0_addr_l = ba0_addr;
++                ba1_addr_l = ba1_addr;
++                ba2_addr_l = ba2_addr;
++                ba3_addr_l = ba3_addr;
++                match[0]   = ba0_key===ba0_row;
++                match[1]   = ba1_key===ba1_row;
++                match[2]   = ba2_key===ba2_row;
++                match[3]   = ba3_key===ba3_row;
++                wr_l       = wr;
++                rd_l       = rd;
++                noreq      = ~|{wr,rd,prog_rq};
++        end
++    end
++endgenerate
++`else
+ localparam RMSB = AW==22 ? AW-1 : AW-2,
+            RLSB = RMSB-12;
+ 
+@@ -89,5 +163,6 @@ generate
+         end
+     end
+ endgenerate
++`endif
+ 
+ endmodule
+diff --git a/modules/jtframe/hdl/sdram/jtframe_sdram64_rfsh.v b/modules/jtframe/hdl/sdram/jtframe_sdram64_rfsh.v
+index ca0b20515393bd7cedbaf2372709f13322e02a98..87d33a8b525e9f84dd8a345b5bcb7e01abb123e8 100644
+--- a/modules/jtframe/hdl/sdram/jtframe_sdram64_rfsh.v
++++ b/modules/jtframe/hdl/sdram/jtframe_sdram64_rfsh.v
+@@ -16,8 +16,19 @@
+     Version: 1.0
+     Date: 29-4-2021 */
+ /* verilator coverage_off */
++`ifdef JTFRAME_SDRAM_XL
++module jtframe_sdram64_rfsh #(parameter HF=1, RFSHCNT=9, XL=0,
++    // 128 MiB module under jtframe_sdram64: every refresh slot precharges all
++    // banks of both chips and then refreshes both (chip 0, then chip 1). One
++    // clock longer than a single-chip slot, RFSHCNT keeps its per-chip meaning
++    // and each chip sees the 64 MiB module's refresh timing. XL (one chip per
++    // slot, alternating) is left as the burst controller uses it; not both.
++    BOTH=0)
++(
++`else
+ module jtframe_sdram64_rfsh #(parameter HF=1, RFSHCNT=9, XL=0)
+ (
++`endif
+     input               rst,
+     input               clk,
+ 
+@@ -36,8 +47,14 @@ module jtframe_sdram64_rfsh #(parameter HF=1, RFSHCNT=9, XL=0)
+ // HF=0 -> 60MHz  (16.67ns)
+ // HF=1 -> 100MHz (10ns)
+ 
++`ifdef JTFRAME_SDRAM_XL
++localparam NOPS = HF ? 7 : 4,                  // idle clocks after the last refresh command (tRFC)
++           RFRSH= BOTH ? 2 : (HF ? 2 : 1),      // first refresh command
++           STW  = RFRSH + (BOTH ? 2 : 1) + NOPS; // 10/6 as before, 11/8 with BOTH
++`else
+ localparam STW  = 3+7-(HF==1? 0 : 4),
+            RFRSH= HF?2:1;
++`endif
+ 
+ localparam CW=6;
+ localparam [STW-1:0] ONE=1;
+@@ -115,7 +132,16 @@ always @(posedge clk) begin
+                 rfshing <= 0;
+             end
+         end
++`ifdef JTFRAME_SDRAM_XL
++        if( BOTH ) begin
++            // slot: precharge-all chip 0, precharge-all chip 1, refresh chip 0, refresh chip 1, tRFC
++            cmd  <= (st[0] || st[1]) ? CMD_PRECHARGE : ( (st[RFRSH] || st[RFRSH+1]) ? CMD_REFRESH : CMD_NOP );
++            chip <= st[1] | st[RFRSH+1];
++        end else
++            cmd <= st[0] ? CMD_PRECHARGE : ( st[RFRSH] ? CMD_REFRESH : CMD_NOP );
++`else
+         cmd <= st[0] ? CMD_PRECHARGE : ( st[RFRSH] ? CMD_REFRESH : CMD_NOP );
++`endif
+     end
+ end
+ 

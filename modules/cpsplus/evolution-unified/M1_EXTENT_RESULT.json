@@ -1,0 +1,313 @@
+{
+  "base_jtcores_revision": "8e73fb10ef1cb8a539ec94db2a0f68ef89eb689c",
+  "canonical_packs": {
+    "captcomm_psx.cpk": {
+      "bytes": 91206804,
+      "metadata_sha256": "7e345ecd2940baa83ab0e3faee6883f97ad3c23e3d0119a2909ece78de2c780b",
+      "sha256": "45adf6b09e28576f5a2d2cced066b3ef3f5d931c9735f47a39ba9c8d381e9038"
+    },
+    "ffight_arrange.cpk": {
+      "bytes": 92429352,
+      "metadata_sha256": "ecced2f6a2c45611def499c7a8afe7529d3f93bf195f3ee87893251b59310bc6",
+      "sha256": "fd8f3b6cda24fd8398f858cf8d555126e39ea2c75686ca4d208f279807748a19"
+    },
+    "ffight_arrange_jp.cpk": {
+      "bytes": 92236604,
+      "metadata_sha256": "ed17ce7212556dd3665dc41aae9d4a2fe708146674b6665adbf874ff9728d606",
+      "sha256": "5e0ca87e2ab617738c6a3f3f3431b24eccf329fd25d547fdc048886971b442b2"
+    },
+    "ffight_di.cpk": {
+      "bytes": 40881600,
+      "metadata_sha256": "1a2d7e3c87addce3919239ba5c21223bea9e6465a5bb874743e1744e93bc1599",
+      "sha256": "8446422be549b5e1eccb2008182f52c55daf28b985dd4f0cea1a229868641933"
+    },
+    "ffight_snes.cpk": {
+      "bytes": 56191752,
+      "metadata_sha256": "7210f57e01737b6294b2a9e2146562bc42ad60db564d00667c0de943350cdb90",
+      "sha256": "bf56d007f425cd5b435bc8598c094008f479f53400ca2d9485c2291b2d0619a8"
+    },
+    "ffight_x68k_fm.cpk": {
+      "bytes": 68247928,
+      "metadata_sha256": "540c9d3c0094eeee3a011ef3a9309d113801dd4fcd5b6947372b4226821cc60f",
+      "sha256": "edd8deeda7272489c423203ae474a623e6a9467a5b699f6eba695ed26f681b0a"
+    },
+    "ffight_x68k_midi.cpk": {
+      "bytes": 65190696,
+      "metadata_sha256": "229da1397a25bf3218168cb0de775de3fbb76b4b2ffc08f70050fe24b216500f",
+      "sha256": "06568f12968ef60a7d34f523bd4c3997d35524941a6166df17afd5aaf310b167"
+    },
+    "ffightae_cps2_arrange.cpk": {
+      "bytes": 80730128,
+      "metadata_sha256": "5be5b07594f368531e4046268ca6263b01b58bc8af9dea561687b6eb5be6683d",
+      "sha256": "6c04f29234e66efdffceaf352d3ebe18b0b26fa1aafdc340e96787711d2a8b1a"
+    },
+    "forgottn_arrange.cpk": {
+      "bytes": 140601212,
+      "metadata_sha256": "7151f85673c041e5d49ee710e3e65194a42d587695952468fe086dec7ae9f139",
+      "sha256": "4e5f8e9dd000e03360d86c335bf3cc439f2a191224f480d1748f8c7f68703f57"
+    },
+    "ghouls_x68k_midi.cpk": {
+      "bytes": 102888432,
+      "metadata_sha256": "b8e6beefe87ee84133d39c724396a68d547e48123af9c931e14f875464c89f9b",
+      "sha256": "5cfb9c9b6344c2cb77e02d5a4fb6871cf009118adf29fa4cc8cc592845fa07f3"
+    },
+    "mbomber_arrange.cpk": {
+      "bytes": 79573248,
+      "metadata_sha256": "33f72faa5e532d62b5e22aa293f336e926839d3a99ec3ad93e310984ef34c96e",
+      "sha256": "8ff38b366c2a0f9b8ab2c831d376803d94492c83296f0f5f2607ce0eaf33c590"
+    },
+    "msword_di.cpk": {
+      "bytes": 37867648,
+      "metadata_sha256": "3e8f27b32ec6978e721de7c7d6a23fe56dfa7b5d7d2639be056efc24282f344e",
+      "sha256": "fb7c89f949de36ae174b6b72b4f7b20ef83585e9a0a4e1a590440bfc15828f3e"
+    },
+    "mtwins_arrange.cpk": {
+      "bytes": 143216984,
+      "metadata_sha256": "7ff0747933a8b677f7f7a46ae5171e438b1dfe41eb79769141e74154b9b54fb3",
+      "sha256": "0803ffcd82a7c709a51217a826d17eb4d4ab17ed9a9ca56b7375aeb12b3076cb"
+    },
+    "sf2_arrange.cpk": {
+      "bytes": 108760248,
+      "metadata_sha256": "d658f83198dc7274c73f7cd4c3cf6be7122fd3e7ac3f2e27e7c589e1ad177a00",
+      "sha256": "b5b92931e0df58d872893caaa400d6f5f3b5910d8d3cde492df17122cbbe4708"
+    },
+    "sf2ce_x68k_midi.cpk": {
+      "bytes": 158790728,
+      "metadata_sha256": "f3fcd522bb748e79c5736d0884427d3aca9edd80a497bda1ab6729f8660fadbe",
+      "sha256": "3f05547f8a1435cf79b55e657d67a67ee55df7a60b4a2b945711e45daf809811"
+    },
+    "sfa1_arrange.cpk": {
+      "bytes": 100551640,
+      "metadata_sha256": "0ce457d99256ed2bb915ea80e88617e7dccd8f7f6d54cf4e018fcdf1197546ae",
+      "sha256": "672bf3b354ef3f17abeede325e2b956421ed3bc7c9ce26f1d12ec5d10d4415c6"
+    },
+    "sfa2_arrange.cpk": {
+      "bytes": 98476672,
+      "metadata_sha256": "6b565048b173b86f97402fd00c465f33403a4ede795b928c66f4bb9d49ac457e",
+      "sha256": "38327fd33b7a53ff7e486ca164133f553af4ebb430a80d8cf5cb90e5a872f3a3"
+    },
+    "sfa2_snes.cpk": {
+      "bytes": 66703212,
+      "metadata_sha256": "f0685c64a99991b73929f5daf6b0ac318ab7827c2cf2b0edec49e23068f37fc5",
+      "sha256": "8ab68d64c6f33de77a73d9c1e16dc0957c5cbda057a16ebbf7315e05dc1b1024"
+    },
+    "sfz2al_arrange.cpk": {
+      "bytes": 101193088,
+      "metadata_sha256": "91ad1b2e6806dcd9a9b1603e6fee502c21c53e467dc022c10b8d050fe6a1a45a",
+      "sha256": "9ee7e9300fc67e5760d86979124fa0d8812a036ba939dde85b21fcfe512b49ac"
+    },
+    "spf2t_arrange.cpk": {
+      "bytes": 124271360,
+      "metadata_sha256": "df08c6fb573e6273047fc93057cf68c1b04413913e8771c252f1f1fe2dea863f",
+      "sha256": "8866f5f6c62f03f65b0e5801a15c5ebd123a95b8a70babace26fce14b7ae8ab3"
+    },
+    "ssf2_arrange.cpk": {
+      "bytes": 184476576,
+      "metadata_sha256": "b937b25c3e78bcda3f032dd562ffdc46cb503e17a0b2213dd3e4f472c40f2c82",
+      "sha256": "b6fb021c87ff431eb4f1a07afa081b225ce27fccf263e4273cbd00a8aa102b19"
+    },
+    "ssf2_cps1.cpk": {
+      "bytes": 146397584,
+      "metadata_sha256": "47e7993205c28bb4100a5f08ec6301e7be989c95c0ac90915c05e026cba94034",
+      "sha256": "f9f842149c4330161c5f62363c1651f0c532458fa17f9e9655845e5d8f56c994"
+    },
+    "ssf2_dos_cd.cpk": {
+      "bytes": 152301340,
+      "metadata_sha256": "93661c1d2dfe601ffb315e489baf5b64fb4ff4d60746f2ddb11c020cba7042f1",
+      "sha256": "edddab8bbf64a76750e1a65287ad4fa7ce2c2f9c47aed4ceeb90bc0d3256b571"
+    },
+    "ssf2_dos_fm.cpk": {
+      "bytes": 197278452,
+      "metadata_sha256": "5d765928e23affbe6ea47f2a5ef8dd1b928534b877b82ec38cdb6d5c11d2f0eb",
+      "sha256": "c7b111b41a23632acf6318a70cbf793d6f397882a02b22b92a6483acfded6878"
+    },
+    "ssf2_dos_mt32.cpk": {
+      "bytes": 195355716,
+      "metadata_sha256": "09b030fac41faf991887d9d341c61dbc353f90239eecc704d6a272f2508813ad",
+      "sha256": "f211af79db34fe2a93b36129984faf786b7fe16e132ea291d53125e962723637"
+    },
+    "ssf2_dos_sc55.cpk": {
+      "bytes": 192728516,
+      "metadata_sha256": "5f829e855114ef704708d72f52dfc2153372c1a0c4067cd780bcfcb5b994e466",
+      "sha256": "e7a40b0e74c17b56adc2b924d23bc01038317614430cbbbb87eadd06684baa49"
+    },
+    "ssf2_hdremix.cpk": {
+      "bytes": 161468704,
+      "metadata_sha256": "aa900a55b4c7279cb5cc1539b1f95d5360b7e83678394de944ca82992e03e254",
+      "sha256": "d12a85817f63b0440986f6772136845729098c4d0541eac3ff65b2a434c0fc55"
+    },
+    "ssf2_usf2_remix.cpk": {
+      "bytes": 126570908,
+      "metadata_sha256": "ae8c3b59b7055c0f8bd5a73bd175e0c68ebd1e8b77b7209a4dc0d1b5e9d251ff",
+      "sha256": "59040e349b58193d6ffca300dd30078628e88df1266cd5ab9bb68c62272b50d6"
+    },
+    "ssf2_x68k_fm.cpk": {
+      "bytes": 221358668,
+      "metadata_sha256": "3fe5e1dea1806088662482a7e72b396b59441c1e903fc4a89fe84a30b4ff89e7",
+      "sha256": "50e338e6566f362079475964b38dce888d99a39b841aa857cfc709c8a2179d5c"
+    },
+    "ssf2_x68k_midi.cpk": {
+      "bytes": 221218044,
+      "metadata_sha256": "92cd0f3979f0cafdce7e310a8d62c0424808473b4b73b4fd33705dc3f09c3003",
+      "sha256": "172c3654a4f15212bcef2a05c660315f5cbc81c12a30f889a971b89ca05ed06f"
+    },
+    "strider_psx.cpk": {
+      "bytes": 28926588,
+      "metadata_sha256": "5efdbfc67a2b7d5844d7f3b85d0829946b7e89a0a8b954371d4e6c36e50b50f9",
+      "sha256": "b9d14409596cb123feeb5e62dd2021354fd42d505c84d3bb713099a864d7253f"
+    },
+    "unsquad_snes.cpk": {
+      "bytes": 68119592,
+      "metadata_sha256": "68df350e80f68cd1402dbd0252522e99e72987b2f883557214b42cb22effacbe",
+      "sha256": "69c686c0c69f401caeb49cc9a50de88c2010fa8b2e605f944d9bb26f3887c60f"
+    }
+  },
+  "changed_production_sources": {
+    "modules/cpsplus/hdl/cpsplus_ddr.v": "bef0d65417378ca2bcbda2fc56899b40d6baf01653023fd9bf91dea048edca05",
+    "modules/cpsplus/hdl/cpsplus_top.v": "965d5659659a22fc3bbb39800c2aada02b5bfa3a4a08526b7679f7b2d00f3c6c",
+    "modules/jtframe/target/mister/hdl/sys/hps_io.sv": "1afa1205f3806ab050032ebecacbc1165e64c8fb11ef943a517e8c4c8884bb63"
+  },
+  "command": "python3 cpsplus/evolution/unified/run_extent_gate.py --work \"$CAPCOM_UNIFIED_WORK\" --packs \"$CAPCOM_PACK_ROOT\"",
+  "date": "2026-10-04",
+  "executables": {
+    "bad_host_obj/Vextent_host": "0842bbc3e1ee8633e93a06217f93c71139bf54496cc1f755c740dd8c776182d9",
+    "host_obj/Vextent_host": "495a5c595f96e5658fa26afa19ef80907e63c52d57fde719ebff4e44dbc77a3f",
+    "legacy-off.vvp": "dbda24e5a112332be2cd637f9b0d85892db7f938ce98917ab89641ed2b0e6e4f",
+    "legacy-unbounded-legacy.vvp": "71efdcd7b0f29f6aec08683d013a0c9f52cafeabded060d0636527f91d397982",
+    "pack.vvp": "0b72a47542af34d0caeb3421e126ac8e81cb2b77ddd5b77daf0c4e1e3cdb2be3",
+    "unbounded.vvp": "462edf4fd93f4d204aa2beb47702d651de000096d90a1731bc2484230225c350"
+  },
+  "fresh_empty_scratch_run": true,
+  "full_receipt_sha256": "4d27229388381e5654bc2c20145c09dc961cc99ef467c61164710d12c58dc8c4",
+  "main_sources": {
+    "main/fpga_io.cpp": {
+      "sha256": "3a690b1a5c0c20b0994d44c4853c92c8c4c8698623589928f04a8ca6e333a127",
+      "url": "https://raw.githubusercontent.com/MiSTer-devel/Main_MiSTer/57276f0c1687f3b81eb326f80dfcaeb5a222e60d/fpga_io.cpp"
+    },
+    "main/shmem.h": {
+      "sha256": "d484eb24771081ca78eae8461b72b3137c35845fd171e8bc6acd5ae3b4d85bc5",
+      "url": "https://raw.githubusercontent.com/MiSTer-devel/Main_MiSTer/57276f0c1687f3b81eb326f80dfcaeb5a222e60d/shmem.h"
+    },
+    "main/spi.cpp": {
+      "sha256": "b2a2211ce83acda3a8e398ec379d6af7a96a94ea90bdcea4b38d49e8a6201459",
+      "url": "https://raw.githubusercontent.com/MiSTer-devel/Main_MiSTer/57276f0c1687f3b81eb326f80dfcaeb5a222e60d/spi.cpp"
+    },
+    "main/spi.h": {
+      "sha256": "a76120eceb3a2c0df2ec0d09509f3bc41c9de4eaa0301a4d22cef77557fd9a46",
+      "url": "https://raw.githubusercontent.com/MiSTer-devel/Main_MiSTer/57276f0c1687f3b81eb326f80dfcaeb5a222e60d/spi.h"
+    },
+    "main/support/arcade/mra_loader.cpp": {
+      "sha256": "20662b3d98ddc0b73e0f3d4700aa67954a598bf1c07c9255d6ac7253bc927d38",
+      "url": "https://raw.githubusercontent.com/MiSTer-devel/Main_MiSTer/57276f0c1687f3b81eb326f80dfcaeb5a222e60d/support/arcade/mra_loader.cpp"
+    },
+    "main/user_io.cpp": {
+      "sha256": "034e16907420a9c91575422ffaa7c93335d43da7ebfbb2ccf07a3c238806664c",
+      "url": "https://raw.githubusercontent.com/MiSTer-devel/Main_MiSTer/57276f0c1687f3b81eb326f80dfcaeb5a222e60d/user_io.cpp"
+    },
+    "main/user_io.h": {
+      "sha256": "803548183812815eabc8dfa7fb1e4be798ffa739d105490d1cb806d1fcb044c9",
+      "url": "https://raw.githubusercontent.com/MiSTer-devel/Main_MiSTer/57276f0c1687f3b81eb326f80dfcaeb5a222e60d/user_io.h"
+    }
+  },
+  "not_yet_qualified": [
+    "Framework routing and transaction/control ABI",
+    "Startup, reload drain/reset and fallback manager",
+    "Enhanced native audio with actual CPK playback",
+    "Capability/status register",
+    "Unified FPGA fitting or hardware acceptance"
+  ],
+  "observations": [
+    "PASS macro-off token identity and mutation control: modules/jtframe/target/mister/hdl/sys/hps_io.sv",
+    "PASS macro-off token identity and mutation control: modules/cpsplus/hdl/cpsplus_ddr.v",
+    "PASS macro-off token identity and mutation control: modules/cpsplus/hdl/cpsplus_top.v",
+    "PASS full-width HPS extent: 12 lengths, native 27-bit address/overflow retained, end retained, reload cleared, upload isolated",
+    "PASS negative control: discarded HPS length high word rejected",
+    "direct-high: PASS pack extent: status=2 indirect=0 received=0d000014 requests=4",
+    "indirect-high: PASS pack extent: status=2 indirect=1 received=0d010014 requests=5",
+    "near-reservation-end: PASS pack extent: status=2 indirect=0 received=0d000014 requests=4",
+    "version-zero: PASS pack extent: status=2 indirect=0 received=0d000014 requests=4",
+    "truncated-27-bit: PASS pack extent: status=6 indirect=0 received=05000014 requests=1",
+    "short-header: PASS pack extent: status=6 indirect=0 received=00000fff requests=0",
+    "empty: PASS pack extent: status=6 indirect=0 received=00000000 requests=0",
+    "extra-tail: PASS pack extent: status=6 indirect=0 received=0d000015 requests=1",
+    "outside-reservation: PASS pack extent: status=6 indirect=0 received=10000001 requests=0",
+    "unaligned-base: PASS pack extent: status=6 indirect=0 received=0d000014 requests=0",
+    "low-base: PASS pack extent: status=6 indirect=0 received=0d000014 requests=0",
+    "header-size: PASS pack extent: status=6 indirect=0 received=0d000014 requests=1",
+    "version-two: PASS pack extent: status=6 indirect=0 received=0d000014 requests=1",
+    "bad-magic: PASS pack extent: status=5 indirect=0 received=0d000014 requests=1",
+    "trigger-before-header: PASS pack extent: status=6 indirect=0 received=0d000014 requests=1",
+    "trigger-unaligned: PASS pack extent: status=6 indirect=0 received=0d000014 requests=1",
+    "odd-rows: PASS pack extent: status=6 indirect=0 received=0d000014 requests=1",
+    "too-many-rows: PASS pack extent: status=6 indirect=0 received=0d000014 requests=1",
+    "overlap-index: PASS pack extent: status=6 indirect=0 received=0d000014 requests=1",
+    "too-many-tracks: PASS pack extent: status=6 indirect=0 received=0d000014 requests=1",
+    "empty-index: PASS pack extent: status=6 indirect=0 received=0d000014 requests=1",
+    "high-data-offset: PASS pack extent: status=6 indirect=0 received=0d000014 requests=1",
+    "high-data-size: PASS pack extent: status=6 indirect=0 received=0d000014 requests=1",
+    "high-file-size: PASS pack extent: status=6 indirect=0 received=0d000014 requests=1",
+    "wrong-data-size: PASS pack extent: status=6 indirect=0 received=0d000014 requests=1",
+    "trigger-missing-track: PASS pack extent: status=6 indirect=0 received=0d000014 requests=2",
+    "track-past-data: PASS pack extent: status=6 indirect=0 received=0d000014 requests=3",
+    "track-too-long: PASS pack extent: status=6 indirect=0 received=0d000014 requests=3",
+    "empty-track: PASS pack extent: status=6 indirect=0 received=0d000014 requests=3",
+    "loop-backwards: PASS pack extent: status=6 indirect=0 received=0d000014 requests=3",
+    "loop-past-track: PASS pack extent: status=6 indirect=0 received=0d000014 requests=3",
+    "bad-channels: PASS pack extent: status=6 indirect=0 received=0d000014 requests=3",
+    "zero-rate: PASS pack extent: status=6 indirect=0 received=0d000014 requests=3",
+    "bad-gain: PASS pack extent: status=6 indirect=0 received=0d000014 requests=3",
+    "too-many-verbs: PASS pack extent: status=6 indirect=0 received=0d000014 requests=1",
+    "unsupported-fade: PASS pack extent: status=6 indirect=0 received=0d000014 requests=1",
+    "pointer-past-extent: PASS pack extent: status=6 indirect=1 received=00001000 requests=1",
+    "no-appended-pack: PASS pack extent: status=4 indirect=1 received=00001000 requests=1",
+    "PASS shipping compatibility: all 32 pinned canonical pack metadata sets enabled in production RTL",
+    "PASS negative control: unconditional eight-word prefetch rejected at EOF",
+    "PASS legacy reader regression: off, good/bad/no-pack",
+    "PASS legacy reader regression: unbounded-legacy, good/bad/no-pack"
+  ],
+  "producer": "cpsplus/evolution/unified/run_extent_gate.py",
+  "production_hdl_dependency_identity_sha256": "6e0afeb6a35faa3ecfaeb0a10f1ca91b00d8dc8fcfea16a4f20cea069082d23d",
+  "recipes": {
+    "cpsplus/evolution/capacity/native-patches/0009-bounded-native-image.patch": "17873864fb1e25456d45783c45894e35edbfae69b2c5090d8b3482774e1e9d58",
+    "cpsplus/evolution/capacity/native-patches/0010-synchronous-download-rearm.patch": "8e3e310810d57a3f981b1f51502e01cb40a89ecba84539538719001bf770ac11",
+    "cpsplus/evolution/capacity/patches/0007-full-object-graphics.patch": "dea1e9bf59cb33bda8515749a2e4c8bbe7719534fb6986ff91eed77230c2a1b0",
+    "cpsplus/evolution/capacity/patches/0008-scroll-tile-bank.patch": "a56b6f48cc993aae2c9d8d6f5e529198f052d54a0df7a077a04b7cca9e63869e",
+    "cpsplus/evolution/capacity/sample32-patches/0011-native-qsound32.patch": "40a66908aa6ef172cdf1202f9f9c48c69d89542b33448d93423e3040f756c2f9",
+    "cpsplus/evolution/capacity/sample32-patches/0012-verilog-rom-word-address.patch": "5447e92cd8284b31ed8d5c24482d8d8f41411f1b1087e0da64fdb62d984ffe14",
+    "cpsplus/evolution/patches/0001-program-window.patch": "4e1dacaa1c097002c1a1596f033aca9bd92a4bb44d440bcbd94dccb9adaa90b5",
+    "cpsplus/evolution/patches/0002-decrypt-range.patch": "5113187aae5dddd71b3a96c0ab06774a2e78ec7c4e6d85101e4603b63833913c",
+    "cpsplus/evolution/patches/0003-object-bank-bit.patch": "07a872f140976d505223fc2a6ee66e47bcacd22580216b3b33148f266c6c333e",
+    "cpsplus/evolution/patches/0004-sdram-xl.patch": "6c031a19ac7e243f3fd950d395db6bbb1f286f46e8d892a303ff8a6e5f3b762f",
+    "cpsplus/evolution/patches/0005-sdram-ncs-constraint.patch": "25c25cd5256c4f8c324993886d0a8e2078860b20b2b6543abf786aa69dfe39e0",
+    "cpsplus/evolution/patches/0006-qsound-flat.patch": "2c13942a3ee7d3a96ab418445b150bf8c921e556ea07fa5f7e3ac701e7c5fd32",
+    "cpsplus/evolution/prepare.py": "eab165d51dd8efbfd06328e6a9567876469cc14bc067cb497cc3f449bc1ad3ad",
+    "cpsplus/evolution/run_gate.py": "6dd7df52cf797396e10bbf079250fe3b81877a62b5e389c27839906bc45648ce",
+    "cpsplus/evolution/source.json": "39beadd20463fe14c4809497a65b507efec8f53a5a578158f90b7c6b2f16c08a",
+    "cpsplus/evolution/unified/M0_PACK_CENSUS.json": "ecf60c99b4b12b924f75239cfceaa0070a255c1686839121e004771fac8a5a2d",
+    "cpsplus/evolution/unified/extent_host.cpp": "fe360dc92dc81133e5f6e0114d2774dbd23fde92467ba0bdf98f9f2dc8caae46",
+    "cpsplus/evolution/unified/extent_host.sv": "2939b785db4efe764156cc1c19fb8532c9f0ddab54c0e6e182229cb1e00ee829",
+    "cpsplus/evolution/unified/patches/0013-transfer-length-and-pack-bounds.patch": "aea68d4c51ece1d1b7225b85988d17aa13f7920200224c00621abca7d0d89cd7",
+    "cpsplus/evolution/unified/run_extent_gate.py": "9282129efe5709cb8598343faa2facda773710ebee6da83957cc220f52e8468e",
+    "cpsplus/evolution/unified/run_staging_probe.py": "fe2103c8ac22df08af4540f082bbbd553bfdfbf67a6f017b851e367cda788be9",
+    "cpsplus/evolution/unified/source_inputs.json": "1558ab4e11ad42536d043d687ea157c14ddb414b68eac089475361e6164e44fa",
+    "cpsplus/evolution/unified/tb_pack_extent.sv": "7a43b33acff5a9c604f1bf567b613d603de91969165f2066d3d510b74046cea1",
+    "cpsplus/pack/adxcodec.py": "189e4b700c85026b878d4b78360d3d12059a5b1366db8c90f0b587a00c18449c",
+    "cpsplus/pack/audition.py": "fb4b5bf43ff015e8370abf27892f6e0a9f64381bd60e6b2a0b4e4249c8d2d729",
+    "cpsplus/pack/format.py": "506aa07c49be9d55299b8316ba1e55affec993d0cebb54ca115d6ffb32da5217",
+    "cpsplus/rtl/tb/fixtures.py": "447dac443f128ab1374522604f0e4a3c162be1c964295f60742ce06a7445721b",
+    "cpsplus/rtl/tb/gen_chain_vectors.py": "362bb75dc991d8187021ae0b9f9920d4b79b15b296a2210a75c01e205fb1a201",
+    "cpsplus/rtl/tb/gen_trigger_vectors.py": "62b7a00695d4a19d68a8d2fff99745ce4ddb5aa814f921182c6efcb7363ea66c",
+    "cpsplus/rtl/tb/tb_ddr.v": "498e68ea600d73483f8afb9e91c3214fac2cb5d136ae8eced677ce1ec6fbe395",
+    "cpsplus/scripts/render_route.py": "2f43ab991664386f4a1520a9f66bf3a32df0326e266c0f0f8a555481cfee5109"
+  },
+  "schema_version": 1,
+  "scope": "opt-in transfer length and reader bounds; startup/routing/playback not accepted",
+  "shipping_music_baseline": "5dc2dc388d88c48577e76c706ff80cee0e4ab1b5",
+  "status": "pass",
+  "tool_sha256": {
+    "iverilog": "5df81b269e1ff2c965dd00ad5a8071ca17717f416003b3661a18b2dde430e73c",
+    "verilator": "fb2cc573b1055cf096c90e1efc9966fe56bdb4b265c83590cf2a49f7a0defcdf",
+    "vvp": "1a9bdf1f40102f64f015514f5069f99a5dd9f9f38de343743ef4c169fb358392"
+  },
+  "verilator_version": "Verilator 5.050 2026-07-01 rev vUNKNOWN-built20260701"
+}

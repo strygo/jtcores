@@ -35,6 +35,9 @@ module jtcps2_obj_scan(
     input      [15:0]  table_y,
     input      [15:0]  table_code,
     input      [15:0]  table_attr,
+`ifdef CPS2_OBJEXT
+    input              table_ext,
+`endif
 
     // interface with renderer
     output reg         dr_start,    // dr for "draw"
@@ -44,7 +47,11 @@ module jtcps2_obj_scan(
     output reg [15:0]  dr_attr,
     output reg [ 8:0]  dr_hpos,
     output reg [ 2:0]  dr_prio,
+`ifdef CPS2_OBJEXT
+    output reg [ 2:0]  dr_bank   // {extension bit, y[14:13]}
+`else
     output reg [ 1:0]  dr_bank
+`endif
 );
 
 reg  [ 9:0] mapper_in;
@@ -53,7 +60,11 @@ reg  [ 8:0] vrenderf;
 reg  [ 9:0] obj_y, obj_x;
 wire [15:0] code_mn;
 wire [ 9:0] st4_effx;
+`ifdef CPS2_OBJEXT
+reg  [ 2:0] st3_bank, st4_bank;
+`else
 reg  [ 1:0] st3_bank, st4_bank;
+`endif
 reg  [ 2:0] st3_prio, st4_prio;
 wire        start;
 
@@ -154,7 +165,11 @@ always @(posedge clk, posedge rst) begin
                 st3_y    <= done ? 10'd0 : table_y[9:0] + 10'h10 - (table_attr[7] ? 10'd0 : off_y);
                 st3_attr <= done ? 16'd0 : table_attr;
                 st3_prio <= table_x[15:13];
+`ifdef CPS2_OBJEXT
+                st3_bank <= { table_ext, table_y[14:13] };
+`else
                 st3_bank <= table_y[14:13];
+`endif
             end
         // III
             st4_attr <= st3_attr;

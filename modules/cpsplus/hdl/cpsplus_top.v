@@ -51,6 +51,10 @@ module cpsplus_top #(parameter
 
     // control / status
     input      [31:0] base_addr,     // pack / MRA image DDR byte address
+`ifdef CPSPLUS_EXTENT
+    input             extent_valid,
+    input      [31:0] extent_bytes,
+`endif
     input             base_indirect, // 1 = image base + header bytes 8-9
     input             osd_en,
     input             boot_go,       // pulse after ROM load / pack switch
@@ -171,6 +175,10 @@ cpsplus_ddr #(
     .clk            ( clk            ),
     .base_addr      ( base_addr      ),
     .base_indirect  ( base_indirect  ),
+`ifdef CPSPLUS_EXTENT
+    .extent_valid   ( extent_valid   ),
+    .extent_bytes   ( extent_bytes   ),
+`endif
     .osd_en         ( osd_en         ),
     .boot_go        ( boot_go        ),
     .ready          ( ready          ),

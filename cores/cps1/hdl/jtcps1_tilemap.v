@@ -46,6 +46,9 @@ module jtcps1_tilemap(
 
 
     output reg [19:0]  rom_addr,    // up to 1 MB
+`ifdef CPS2_SCREXT
+    output reg         rom_ext,     // per-tile attribute bit 9, latched before its first ROM request
+`endif
     output reg         rom_half,    // selects which half to read
     input      [31:0]  rom_data,
     output reg         rom_cs,
@@ -195,6 +198,9 @@ always @(posedge clk or posedge rst) begin
         done            <= 0;
         st              <= 0;
         rom_addr        <= 0;
+`ifdef CPS2_SCREXT
+        rom_ext         <= 0;
+`endif
         rom_half        <= 0;
         code            <= 0;
         buf_addr        <= 0;
@@ -231,6 +237,9 @@ always @(posedge clk or posedge rst) begin
                 code         <= tile_data;
             end
             3: begin // attributes
+`ifdef CPS2_SCREXT
+                rom_ext <= tile_data[9];
+`endif
                 hflip   <= tile_data[5];
                 group   <= tile_data[8:7];
                 vflip   <= tile_data[6];

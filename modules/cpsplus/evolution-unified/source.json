@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "repository": "https://github.com/strygo/jtcores.git",
+  "revision": "8e73fb10ef1cb8a539ec94db2a0f68ef89eb689c",
+  "submodules": {
+    "modules/fx68k": "1217ab8dc600de070c6adb71ea6fe69de8855362",
+    "modules/jtdsp16": "71fa564ae143527001868b6fb6fb3e41df6a1eb1",
+    "modules/jteeprom": "9c68ce841f4ec560ca6f228c8af6301129fd95fa"
+  },
+  "profile": "CPS2_PRG8",
+  "program_bytes": 8388608,
+  "extension_cpu_start": 10485760,
+  "extension_sdram_bank": 0,
+  "extension_sdram_byte_start": 8388608,
+  "header_marker_offset": 12,
+  "header_marker_hex": "43320101",
+  "object_slice": {
+    "profile": "CPS2_PRG8 CPS2_OBJEXT JTFRAME_SDRAM_XL (jtcore: -d CPS2_PRG8 -d CPS2_OBJEXT -d JTFRAME_SDRAM_XL -u JTFRAME_SDRAM_LARGE)",
+    "header_marker_hex": "43320103",
+    "gfx_region_bytes": 41943040,
+    "slice_gfx_offset": 33554432,
+    "slice_bytes": 8388608,
+    "slice_sdram_bank": 2,
+    "slice_sdram_byte_start": 16777216,
+    "tile_code_bit": 18,
+    "sdram_module_bytes": 134217728
+  },
+  "stock_controls": {
+    "sfa3": {
+      "repository": "jotego/jtbin",
+      "revision": "9c90b2ec74f6f8acf2ff5abe0fc923fd977f445d",
+      "path": "mra/Street Fighter Alpha 3 (Europe 980904).mra",
+      "sha256": "467edcf36ae9041e2b5271dbd8f8dbbba0eda17d30162ef51fc570e75289f541"
+    },
+    "vsav2": {
+      "repository": "jotego/jtbin",
+      "revision": "9c90b2ec74f6f8acf2ff5abe0fc923fd977f445d",
+      "path": "mra/Vampire Savior 2 The Lord of Vampire (Japan 970913).mra",
+      "sha256": "20cde4b0107797778037774e3b001a3718eb3c362ef2e387c189caaa12d0b4bb"
+    }
+  },
+  "qsound_flat": {
+    "profile": "CPS2_PRG8 CPS2_OBJEXT CPS2_QSND24 JTFRAME_SDRAM_XL (jtcore: -d CPS2_PRG8 -d CPS2_OBJEXT -d CPS2_QSND24 -d JTFRAME_SDRAM_XL -u JTFRAME_SDRAM_LARGE, the objext profile)",
+    "header_marker_hex": "43320105 (program window + flat QSound) or 43320107 (+ object slice)",
+    "sample_library_bytes": 16777216,
+    "sample_sdram_bank": 1,
+    "sample_sdram_byte_start": 0,
+    "dsp_bank_bits": 8,
+    "region_order": [
+      "cpu 8 MiB",
+      "z80",
+      "samples 16 MiB",
+      "dsp firmware 8 KiB (8 KiB aligned)",
+      "graphics (open-ended: 32 MiB, 40 MiB with the slice)"
+    ],
+    "image_bytes_with_slice": 67379264,
+    "download_address_bits": 27
+  }
+}

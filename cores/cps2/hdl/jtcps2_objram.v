@@ -49,6 +49,10 @@ module jtcps2_objram(
     input    [ 1:0] dsn,
     input    [15:0] oram_din,
     input    [13:1] main_addr,
+`ifdef CPS2_OBJEXT
+    input           ext_din,   // extension bit stored with every entry word written
+    output          obj_ext,
+`endif
     // output   [15:0] dout2cpu,
 
     // Interface with OBJ engine
@@ -167,6 +171,25 @@ jtframe_dual_ram16 #(.AW(AW-2)) u_attr(
     .we1        ( 2'b0         ),
     .q1         ( obj_attr     )
 );
+
+`ifdef CPS2_OBJEXT
+// Fifth lane: the object extension bit, latched with the entry. Any write to
+// any word (or byte) of the entry stores ext_din; cleared with x/y on reset.
+wire we_ext = cs & ~&dsn;
+
+jtframe_dual_ram #(.DW(1),.AW(AW-2)) u_ext(
+    .clk0       ( clk_cpu      ),
+    .data0      ( ext_din      ),
+    .addr0      ( wr_addr      ),
+    .we0        ( we_ext       ),
+    .q0         (              ),
+    .clk1       ( clk_gfx      ),
+    .data1      ( 1'b0         ),
+    .addr1      ( amux         ),
+    .we1        ( asel         ),
+    .q1         ( obj_ext      )
+);
+`endif
 
 jtframe_dual_ram16 #(.AW(AW-2)) u_code(
     .clk0       ( clk_cpu      ),
