@@ -1,0 +1,21 @@
+diff --git a/modules/jtframe/target/mister/cfg/files.yaml b/modules/jtframe/target/mister/cfg/files.yaml
+--- a/modules/jtframe/target/mister/cfg/files.yaml
++++ b/modules/jtframe/target/mister/cfg/files.yaml
+@@ -3,6 +3,7 @@ jtframe/target/mister:
+     - jtframe_emu.sv
+     - jtframe_mister.sv
+     - jtframe_mister_dwnld.v
++    - jtframe_cps2_load.v
+     - jtframe_mister_status.v
+     - jtframe_target_info.sv
+     - jtframe_mr_ddrmux.v
+@@ -11,9 +12,6 @@ jtframe/target/mister:
+     - sys.qip
+     - pll.qip
+     - joydb15.v
+-  - when: [ CPS2_UNIFIED ]
+-    get:
+-      - jtframe_cps2_load.v
+   - when: [ JTFRAME_SAVEGAME ]
+     get:
+       - jtframe_mister_cartsave.v

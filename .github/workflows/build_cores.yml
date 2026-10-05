@@ -37,7 +37,7 @@ jobs:
             -e CORE=cps2 -e SKIP_STOCK=1 -e SEED="$SEED" -e TRIALS="$TRIALS" \
             -e JTCORE_EXTRA="$extra" -v "$PWD":/jtcores \
             jotego/jtcore20@sha256:58a69912d36b33952253c6c7245bf80ada8ae000084a03e6479d46e9e913baec \
-            /jtcores/.github/scripts/fitter_ab.sh /jtcores /jtcores/fitter_results
+            /bin/bash -c 'python3 /jtcores/modules/cpsplus/evolution-unified/check_build_sources.py --root /jtcores --work /jtcores/build-source-check && /jtcores/.github/scripts/fitter_ab.sh /jtcores /jtcores/fitter_results'
       - name: Name the candidate and include provenance
         if: always()
         run: |
@@ -47,6 +47,10 @@ jobs:
           fi
           if [ -d fitter_results ]; then
             sudo cp modules/cpsplus/evolution-unified/export_manifest.json fitter_results/source_manifest.json
+          fi
+          if [ -f build-source-check/receipt.json ]; then
+            sudo mkdir -p fitter_results
+            sudo cp build-source-check/receipt.json fitter_results/build_source_receipt.json
           fi
       - uses: actions/upload-artifact@v4
         if: always()

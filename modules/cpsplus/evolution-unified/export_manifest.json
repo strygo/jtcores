@@ -1,13 +1,16 @@
 {
   "base_revision": "8e73fb10ef1cb8a539ec94db2a0f68ef89eb689c",
   "branch": "codex/cps2-unified",
+  "build_source_receipt_sha256": "ad845f9926c1188721bf5cb7bfe1e6a4f480662ae36edde64ac2eb9c9a656f65",
   "bundle_files": {
-    ".github/workflows/build_cores.yml": "326f24a6a6ed522033ef299d8dc71f67ada057e6b821fb3c088642975b4b0e0a",
+    ".github/workflows/build_cores.yml": "098a2367e72e91925812b9e2d5b5b7124f27c1e50819b9064b41180a761d6a0b",
     "modules/cpsplus/evolution-unified/.gitattributes": "bb8f9d43e47ea4805a18dc56071a6c1f106e0ac8041369bb1551970f90aa9444",
+    "modules/cpsplus/evolution-unified/BUILD_SOURCE_RESULT.json": "ad845f9926c1188721bf5cb7bfe1e6a4f480662ae36edde64ac2eb9c9a656f65",
     "modules/cpsplus/evolution-unified/M1_EXTENT_RESULT.json": "521dff8b6fe05850caa1830c4a1c6c40158c9cb77760fb918b99905c19aad947",
     "modules/cpsplus/evolution-unified/M1_ROUTING_RESULT.json": "e76314603c69aa95cac7607963607fd5afa8a0ca9d9f95da09375ac8fe61bc1f",
     "modules/cpsplus/evolution-unified/M2_MIXED_AUDIO_RESULT.json": "72c4e8526681d310c8f7052bde80bb96671bc2f7626d905317988af4a0e6c6ea",
-    "modules/cpsplus/evolution-unified/README.md": "7bda161c1f09b0b947fd8bf791fc43d8a06668a0ac3d40ded94c07f1b3fbf52e",
+    "modules/cpsplus/evolution-unified/README.md": "10b94b673b9365220a5d7c29b4bd74ed5de7cc0348c8a580ab3bb19cc9bd982e",
+    "modules/cpsplus/evolution-unified/check_build_sources.py": "651488145682be827eeaa30fb520c7075421f8ec9ca7948b18b59d8f99b3b4c0",
     "modules/cpsplus/evolution-unified/patches/0001-program-window.patch": "4e1dacaa1c097002c1a1596f033aca9bd92a4bb44d440bcbd94dccb9adaa90b5",
     "modules/cpsplus/evolution-unified/patches/0002-decrypt-range.patch": "5113187aae5dddd71b3a96c0ab06774a2e78ec7c4e6d85101e4603b63833913c",
     "modules/cpsplus/evolution-unified/patches/0003-object-bank-bit.patch": "07a872f140976d505223fc2a6ee66e47bcacd22580216b3b33148f266c6c333e",
@@ -22,6 +25,7 @@
     "modules/cpsplus/evolution-unified/patches/0012-verilog-rom-word-address.patch": "5447e92cd8284b31ed8d5c24482d8d8f41411f1b1087e0da64fdb62d984ffe14",
     "modules/cpsplus/evolution-unified/patches/0013-transfer-length-and-pack-bounds.patch": "aea68d4c51ece1d1b7225b85988d17aa13f7920200224c00621abca7d0d89cd7",
     "modules/cpsplus/evolution-unified/patches/0014-staged-routing-and-startup.patch": "d33fec4777ae13e1979ecafaeb3915b7642c935e3562cb8a2e0134818821dae9",
+    "modules/cpsplus/evolution-unified/patches/0015-loader-source-list.patch": "b978033c9487bfdabca89c0a0d6b1ca00266628eabee318eb4f9ded51ed0bf46",
     "modules/cpsplus/evolution-unified/source.json": "39beadd20463fe14c4809497a65b507efec8f53a5a578158f90b7c6b2f16c08a",
     "modules/cpsplus/evolution-unified/verify_export.py": "7efe4fd781fc983e4a79fb631d0d9b022f09f500667ec4aec9d710610a1b283e"
   },
@@ -47,7 +51,8 @@
     "0011-native-qsound32.patch": "40a66908aa6ef172cdf1202f9f9c48c69d89542b33448d93423e3040f756c2f9",
     "0012-verilog-rom-word-address.patch": "5447e92cd8284b31ed8d5c24482d8d8f41411f1b1087e0da64fdb62d984ffe14",
     "0013-transfer-length-and-pack-bounds.patch": "aea68d4c51ece1d1b7225b85988d17aa13f7920200224c00621abca7d0d89cd7",
-    "0014-staged-routing-and-startup.patch": "d33fec4777ae13e1979ecafaeb3915b7642c935e3562cb8a2e0134818821dae9"
+    "0014-staged-routing-and-startup.patch": "d33fec4777ae13e1979ecafaeb3915b7642c935e3562cb8a2e0134818821dae9",
+    "0015-loader-source-list.patch": "b978033c9487bfdabca89c0a0d6b1ca00266628eabee318eb4f9ded51ed0bf46"
   },
   "rtl_files": {
     "cores/cps1/hdl/jtcps1_obj_draw.v": "bff42a8ec8c8737df20a4125003d8d4b6522924e1ea24caceb63f4b522362974",
@@ -73,7 +78,7 @@
     "modules/jtframe/hdl/sdram/jtframe_sdram64_bank.v": "9029fc5807bb22f2d90fd6aa512120fc7889768068b17a1349096e4a6cd18707",
     "modules/jtframe/hdl/sdram/jtframe_sdram64_latch.v": "f83d09116046fa3f082a9a2ebeaaec70db34fae136b88abeab47461e242010f0",
     "modules/jtframe/hdl/sdram/jtframe_sdram64_rfsh.v": "1e8b4badcbc48cdd246ed636c153cff5e58e3c850c650d9791162085e08b455e",
-    "modules/jtframe/target/mister/cfg/files.yaml": "d6c8968e1e4c081da20b179409b9c8666aa96af261cd8a4cdfd0a8a96a8cb1f5",
+    "modules/jtframe/target/mister/cfg/files.yaml": "caeed248409613f719f98f971d8b7523f5ee91e321fab77aff99fb7357223a4d",
     "modules/jtframe/target/mister/hdl/jtframe_cps2_load.v": "870639a6735325c83a89175acff64c41ddeff9c887be81c7149f867aaa39baac",
     "modules/jtframe/target/mister/hdl/jtframe_emu.sv": "a9970f1da75563e0f04695aa73903f2450acfbf22e4149a62a10f993e089b9ec",
     "modules/jtframe/target/mister/hdl/jtframe_mister.sv": "ff67720a408ad38396c41138e92ecf4344cdc4333f06689998c7d3f87d185891",
