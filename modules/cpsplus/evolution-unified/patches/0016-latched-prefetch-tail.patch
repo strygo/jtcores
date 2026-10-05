@@ -1,0 +1,30 @@
+diff --git a/modules/cpsplus/hdl/cpsplus_ddr.v b/modules/cpsplus/hdl/cpsplus_ddr.v
+--- a/modules/cpsplus/hdl/cpsplus_ddr.v
++++ b/modules/cpsplus/hdl/cpsplus_ddr.v
+@@ -295,12 +295,25 @@
+ endfunction
+ // The final physical DDR word may include up to seven bytes past the file.
+ // Mask those lanes; never issue a burst past that final word.
++// Capture the partial final word at the same edge that starts the burst.
++// The pack extent is fixed for its lifetime; boot waits for the old burst to
++// drain before changing it. Keep wide address arithmetic off buffer writes.
++reg pf_tail_mask;
++reg [2:0] pf_tail_bytes, pf_tail_index;
++always @(posedge clk) begin
++    if(rst) pf_tail_mask<=0;
++    else if(pf_go) begin
++        pf_tail_mask<=extent_valid && pack_end[2:0]!=0 && prefetch_left<=30'd8;
++        pf_tail_bytes<=pack_end[2:0];
++        pf_tail_index<=prefetch_words[2:0]-3'd1;
++    end
++end
+ reg [63:0] bounded_data;
+ integer lane;
+ always @(*) begin
+     bounded_data=dd_data;
+     for(lane=0;lane<8;lane=lane+1)
+-        if(extent_valid && ({1'b0,pf_addr,3'b000}+{22'd0,dd_bidx,3'b000}+lane)>=pack_end)
++        if(pf_tail_mask && dd_bidx[2:0]==pf_tail_index && lane>=pf_tail_bytes)
+             bounded_data[lane*8+:8]=0;
+ end
+ `endif

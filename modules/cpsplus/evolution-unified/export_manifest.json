@@ -1,15 +1,16 @@
 {
   "base_revision": "8e73fb10ef1cb8a539ec94db2a0f68ef89eb689c",
   "branch": "codex/cps2-unified",
-  "build_source_receipt_sha256": "608a658ed46eecf1d95e77920f1bfbc6a6c4238db496d05b9a62042e4c7d51aa",
+  "build_source_receipt_sha256": "b1333a8bb115e57970d96a1276e6d52be75a2b06d9a7a28d54edf43c014cdb2a",
   "bundle_files": {
     ".github/workflows/build_cores.yml": "919b00ec5b7f4a617e517e89be70c21797c879accff5c0b92695f441891b9ad9",
     "modules/cpsplus/evolution-unified/.gitattributes": "bb8f9d43e47ea4805a18dc56071a6c1f106e0ac8041369bb1551970f90aa9444",
-    "modules/cpsplus/evolution-unified/BUILD_SOURCE_RESULT.json": "608a658ed46eecf1d95e77920f1bfbc6a6c4238db496d05b9a62042e4c7d51aa",
+    "modules/cpsplus/evolution-unified/BUILD_SOURCE_RESULT.json": "b1333a8bb115e57970d96a1276e6d52be75a2b06d9a7a28d54edf43c014cdb2a",
     "modules/cpsplus/evolution-unified/M1_EXTENT_RESULT.json": "521dff8b6fe05850caa1830c4a1c6c40158c9cb77760fb918b99905c19aad947",
     "modules/cpsplus/evolution-unified/M1_ROUTING_RESULT.json": "e76314603c69aa95cac7607963607fd5afa8a0ca9d9f95da09375ac8fe61bc1f",
     "modules/cpsplus/evolution-unified/M2_MIXED_AUDIO_RESULT.json": "72c4e8526681d310c8f7052bde80bb96671bc2f7626d905317988af4a0e6c6ea",
-    "modules/cpsplus/evolution-unified/README.md": "10b94b673b9365220a5d7c29b4bd74ed5de7cc0348c8a580ab3bb19cc9bd982e",
+    "modules/cpsplus/evolution-unified/M4_READER_TIMING_RESULT.json": "a7f87199d0c5358aae0cf25ea7fa8997172fd01cd1b90179591544b4e807137a",
+    "modules/cpsplus/evolution-unified/README.md": "691ff63baca69d18465a5dfeafac04cc025d305bb973bf67ce00f101ce3d35d4",
     "modules/cpsplus/evolution-unified/check_build_sources.py": "ce97b834b2ec8b7b5bb52ca15deee9dfeab5420564acf04dd0d26707a44357b2",
     "modules/cpsplus/evolution-unified/patches/0001-program-window.patch": "4e1dacaa1c097002c1a1596f033aca9bd92a4bb44d440bcbd94dccb9adaa90b5",
     "modules/cpsplus/evolution-unified/patches/0002-decrypt-range.patch": "5113187aae5dddd71b3a96c0ab06774a2e78ec7c4e6d85101e4603b63833913c",
@@ -26,6 +27,7 @@
     "modules/cpsplus/evolution-unified/patches/0013-transfer-length-and-pack-bounds.patch": "aea68d4c51ece1d1b7225b85988d17aa13f7920200224c00621abca7d0d89cd7",
     "modules/cpsplus/evolution-unified/patches/0014-staged-routing-and-startup.patch": "d33fec4777ae13e1979ecafaeb3915b7642c935e3562cb8a2e0134818821dae9",
     "modules/cpsplus/evolution-unified/patches/0015-loader-source-list.patch": "b978033c9487bfdabca89c0a0d6b1ca00266628eabee318eb4f9ded51ed0bf46",
+    "modules/cpsplus/evolution-unified/patches/0016-latched-prefetch-tail.patch": "d12452c03655adaab70fbe1f5328f41c96df925e0f140e8b4d0228277b4a19fa",
     "modules/cpsplus/evolution-unified/source.json": "39beadd20463fe14c4809497a65b507efec8f53a5a578158f90b7c6b2f16c08a",
     "modules/cpsplus/evolution-unified/verify_export.py": "7efe4fd781fc983e4a79fb631d0d9b022f09f500667ec4aec9d710610a1b283e"
   },
@@ -34,7 +36,8 @@
   "functional_receipts": {
     "M1_EXTENT_RESULT.json": "521dff8b6fe05850caa1830c4a1c6c40158c9cb77760fb918b99905c19aad947",
     "M1_ROUTING_RESULT.json": "e76314603c69aa95cac7607963607fd5afa8a0ca9d9f95da09375ac8fe61bc1f",
-    "M2_MIXED_AUDIO_RESULT.json": "72c4e8526681d310c8f7052bde80bb96671bc2f7626d905317988af4a0e6c6ea"
+    "M2_MIXED_AUDIO_RESULT.json": "72c4e8526681d310c8f7052bde80bb96671bc2f7626d905317988af4a0e6c6ea",
+    "M4_READER_TIMING_RESULT.json": "a7f87199d0c5358aae0cf25ea7fa8997172fd01cd1b90179591544b4e807137a"
   },
   "hardware_validated": false,
   "patches": {
@@ -52,7 +55,8 @@
     "0012-verilog-rom-word-address.patch": "5447e92cd8284b31ed8d5c24482d8d8f41411f1b1087e0da64fdb62d984ffe14",
     "0013-transfer-length-and-pack-bounds.patch": "aea68d4c51ece1d1b7225b85988d17aa13f7920200224c00621abca7d0d89cd7",
     "0014-staged-routing-and-startup.patch": "d33fec4777ae13e1979ecafaeb3915b7642c935e3562cb8a2e0134818821dae9",
-    "0015-loader-source-list.patch": "b978033c9487bfdabca89c0a0d6b1ca00266628eabee318eb4f9ded51ed0bf46"
+    "0015-loader-source-list.patch": "b978033c9487bfdabca89c0a0d6b1ca00266628eabee318eb4f9ded51ed0bf46",
+    "0016-latched-prefetch-tail.patch": "d12452c03655adaab70fbe1f5328f41c96df925e0f140e8b4d0228277b4a19fa"
   },
   "rtl_files": {
     "cores/cps1/hdl/jtcps1_obj_draw.v": "bff42a8ec8c8737df20a4125003d8d4b6522924e1ea24caceb63f4b522362974",
@@ -68,7 +72,7 @@
     "cores/cps2/hdl/jtcps2_obj.v": "b8946354d4ea617488550989d2ef58781ee4dca8d127eb0c49a5f45e712a0c67",
     "cores/cps2/hdl/jtcps2_obj_scan.v": "18b50f802e426f9a9c4d7ed149ad62173804abfd43048b620f902424436ac4cf",
     "cores/cps2/hdl/jtcps2_objram.v": "eb687c11bb16bde75a69a52a975b1bac0940e6c32ba0858dbc00cba916676224",
-    "modules/cpsplus/hdl/cpsplus_ddr.v": "bef0d65417378ca2bcbda2fc56899b40d6baf01653023fd9bf91dea048edca05",
+    "modules/cpsplus/hdl/cpsplus_ddr.v": "241cebdef94b72132f68662a9c4002977a05ea370504f0de63ca5b1c23d48f19",
     "modules/cpsplus/hdl/cpsplus_top.v": "965d5659659a22fc3bbb39800c2aada02b5bfa3a4a08526b7679f7b2d00f3c6c",
     "modules/jtframe/hdl/inc/jtframe_cps2_native.vh": "406911c3dc7bd883414b119a5270e960b4de7db5c3efbd9e69c9d3fcc31633da",
     "modules/jtframe/hdl/inc/jtframe_game_instance.v": "2e7c0964bebacb9f659f672ee24dd8707a21485866cba8cc713566cfa33c2eb6",
