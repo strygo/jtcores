@@ -34,7 +34,8 @@ def validate(text, core):
 
 
 def identity(core):
-    files = subprocess.check_output(['git', '-C', str(core), 'ls-files', '-z']).decode().split('\0')
+    files = subprocess.check_output(['git', '-c', 'safe.directory=' + str(core),
+                                     '-C', str(core), 'ls-files', '-z']).decode().split('\0')
     # Pin all possible parser/config inputs, including recursive YAML aliases.
     return {rel: sha(core / rel) for rel in sorted(files)
             if rel and Path(rel).suffix in ('.go', '.mod', '.sum', '.yaml', '.def')
@@ -66,7 +67,7 @@ def check(core, work):
     tool = work / 'jtframe'
     env = dict(os.environ, JTROOT=str(core), JTFRAME=str(core / 'modules/jtframe'),
                MODULES=str(core / 'modules'), CORES=str(core / 'cores'), JTBIN=str(work / 'release'))
-    subprocess.run([str(go), 'build', '-o', str(tool), '.'],
+    subprocess.run([str(go), 'build', '-buildvcs=false', '-o', str(tool), '.'],
                    cwd=core / 'modules/jtframe/src/jtframe', env=env, check=True)
     tool_sha = sha(tool)
     observations = []
