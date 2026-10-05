@@ -27,6 +27,12 @@ jobs:
           python3 modules/cpsplus/evolution-unified/verify_export.py --root "$PWD"
           git rev-parse HEAD
           git submodule status modules/fx68k modules/jtdsp16 modules/jteeprom
+      - name: Verify generated synthesis source list
+        run: |
+          docker run --rm --platform linux/amd64 --network host --entrypoint /bin/bash \
+            -v "$PWD":/jtcores \
+            jotego/jtcore20@sha256:58a69912d36b33952253c6c7245bf80ada8ae000084a03e6479d46e9e913baec \
+            -c 'python3 /jtcores/modules/cpsplus/evolution-unified/check_build_sources.py --root /jtcores --work /jtcores/build-source-check'
       - name: Compile one unified core and check timing
         env:
           SEED: ${{ inputs.seed }}
@@ -37,7 +43,7 @@ jobs:
             -e CORE=cps2 -e SKIP_STOCK=1 -e SEED="$SEED" -e TRIALS="$TRIALS" \
             -e JTCORE_EXTRA="$extra" -v "$PWD":/jtcores \
             jotego/jtcore20@sha256:58a69912d36b33952253c6c7245bf80ada8ae000084a03e6479d46e9e913baec \
-            -c 'python3 /jtcores/modules/cpsplus/evolution-unified/check_build_sources.py --root /jtcores --work /jtcores/build-source-check && /jtcores/.github/scripts/fitter_ab.sh /jtcores /jtcores/fitter_results'
+            /jtcores/.github/scripts/fitter_ab.sh /jtcores /jtcores/fitter_results
       - name: Name the candidate and include provenance
         if: always()
         run: |

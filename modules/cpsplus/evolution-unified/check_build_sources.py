@@ -42,6 +42,14 @@ def identity(core):
             and (core / rel).is_file()}
 
 
+def git_environment(env, config):
+    # JTFRAME itself launches Git to derive JTFRAME_COMMIT. A -c option on
+    # this script's Git commands does not reach that grandchild process.
+    # It also strips GIT_CONFIG_COUNT. Use an isolated config file selected for
+    # these child processes, with no changes to the user's global configuration.
+    return dict(env, GIT_CONFIG_GLOBAL=str(config), GIT_CONFIG_NOSYSTEM='1')
+
+
 def self_test(core):
     expected = 'set_global_assignment -name VERILOG_FILE ' + str(core / LOADER)
     validate(expected + '\n', core)
@@ -60,13 +68,17 @@ def check(core, work):
     work.mkdir(parents=True)
     inputs = identity(core)
     recipe = sha(Path(__file__))
+    git_config = work / 'gitconfig'
+    subprocess.run(['git', '-c', 'safe.directory=' + str(core), 'config', '--file', str(git_config),
+                    '--add', 'safe.directory', str(core)], cwd=work, check=True)
+    config_sha = sha(git_config)
     go = Path(shutil.which('go') or '')
     if not go.is_file():
         raise ValueError('Go is required to rebuild the pinned JTFRAME generator')
     go_sha = sha(go)
     tool = work / 'jtframe'
-    env = dict(os.environ, JTROOT=str(core), JTFRAME=str(core / 'modules/jtframe'),
-               MODULES=str(core / 'modules'), CORES=str(core / 'cores'), JTBIN=str(work / 'release'))
+    env = git_environment(dict(os.environ, JTROOT=str(core), JTFRAME=str(core / 'modules/jtframe'),
+               MODULES=str(core / 'modules'), CORES=str(core / 'cores'), JTBIN=str(work / 'release')), git_config)
     subprocess.run([str(go), 'build', '-buildvcs=false', '-o', str(tool), '.'],
                    cwd=core / 'modules/jtframe/src/jtframe', env=env, check=True)
     tool_sha = sha(tool)
@@ -82,8 +94,27 @@ def check(core, work):
         # Portable receipt: the real output retains its paths in disposable work.
         outputs[name] = hashlib.sha256(text.replace(str(core), '<core>').encode()).hexdigest()
         observations.append('PASS actual JTFRAME synthesis list: ' + name + ' includes loader once')
+    # Reproduce a bind-mounted checkout with a different owner, including the
+    # nested Git call that failed in CI. Do not consult or change global config.
+    unsafe = {k: v for k, v in env.items() if not k.startswith('GIT_CONFIG_')}
+    unsafe.update(GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
+                  GIT_TEST_ASSUME_DIFFERENT_OWNER='1')
+    out = work / 'ownership-control'
+    out.mkdir()
+    command = [str(tool), 'files', 'syn', 'cps2', '--target=mister']
+    failed = subprocess.run(command, cwd=out, env=unsafe, capture_output=True, text=True)
+    log = failed.stdout + failed.stderr
+    (out / 'untrusted.log').write_text(log)
+    if not failed.returncode or 'Cannot retrieve git commit' not in log or 'exit status 128' not in log:
+        raise ValueError('ownership negative control did not reproduce the nested Git failure')
+    subprocess.run(command, cwd=out, env=git_environment(unsafe, git_config), check=True)
+    text = (out / 'files.qip').read_text()
+    validate(text, core)
+    outputs['ownership-control'] = hashlib.sha256(text.replace(str(core), '<core>').encode()).hexdigest()
+    observations.append('PASS actual nested Git ownership failure reproduced and recovered with inherited checkout-scoped config')
     self_test(core)
-    if inputs != identity(core) or recipe != sha(Path(__file__)) or go_sha != sha(go) or tool_sha != sha(tool):
+    if (inputs != identity(core) or recipe != sha(Path(__file__)) or go_sha != sha(go)
+            or tool_sha != sha(tool) or config_sha != sha(git_config)):
         raise ValueError('build-source inputs or executable changed during check')
     record = dict(schema_version=1, status='pass', scope='actual synthesis source listing; no FPGA fit',
                   recipe_sha256=recipe, inputs=inputs, executable_sha256=tool_sha,

@@ -602,13 +602,15 @@
   },
   "observations": [
     "PASS actual JTFRAME synthesis list: jtcore-default includes loader once",
-    "PASS actual JTFRAME synthesis list: explicit-unified includes loader once"
+    "PASS actual JTFRAME synthesis list: explicit-unified includes loader once",
+    "PASS actual nested Git ownership failure reproduced and recovered with inherited checkout-scoped config"
   ],
   "output_sha256": {
-    "explicit-unified": "e025d1bc7ed73b85b18f7b39f0e29f3ce473d131e31e0dc133bb04804aad0c52",
-    "jtcore-default": "4ffd88242a79694c5a1598891ccec0495c01a50aacb68be9f5128ebb85cb546e"
+    "explicit-unified": "e8d2221119af6e14b36b98fe9f8a92df487fc9af786e0a4db4658f6a47c139b3",
+    "jtcore-default": "7d92ef9a26e17997058e03d318494e0e637d99577e73039afafc86e3a019dd7a",
+    "ownership-control": "c5cbbe82f3d6f11977425c2a2a7c071150616bf8c3b2990207f985224b77f810"
   },
-  "recipe_sha256": "7bfc3604eefa9cb1b7495b65602db5c8ee52dc8773a9f5b0b6dc422534dc6274",
+  "recipe_sha256": "ce97b834b2ec8b7b5bb52ca15deee9dfeab5420564acf04dd0d26707a44357b2",
   "schema_version": 1,
   "scope": "actual synthesis source listing; no FPGA fit",
   "status": "pass"
