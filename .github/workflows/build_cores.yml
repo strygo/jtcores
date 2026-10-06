@@ -1,4 +1,4 @@
-name: CPS2 unified development
+name: CPS2 music stall diagnostic
 
 on:
   workflow_dispatch:
@@ -38,7 +38,7 @@ jobs:
           SEED: ${{ inputs.seed }}
           TRIALS: ${{ inputs.trials }}
         run: |
-          extra='-d CPS2_PRG8 -d CPS2_OBJEXT -d CPS2_QSND24 -d JTFRAME_SDRAM_XL -u JTFRAME_SDRAM_LARGE -d CPS2_GFX64 -d CPS2_SCREXT -d CPS2_NATIVE128 -d CPS2_QSND32 -d CPS2_UNIFIED -d CPSPLUS_EXTENT -u JTFRAME_LF_BUFFER'
+          extra='-d CPS2_PRG8 -d CPS2_OBJEXT -d CPS2_QSND24 -d JTFRAME_SDRAM_XL -u JTFRAME_SDRAM_LARGE -d CPS2_GFX64 -d CPS2_SCREXT -d CPS2_NATIVE128 -d CPS2_QSND32 -d CPS2_UNIFIED -d CPSPLUS_EXTENT -u JTFRAME_LF_BUFFER -d CPSPLUS_DBG -d CPSPLUS_STALL_DBG'
           docker run --rm --platform linux/amd64 --network host --entrypoint /bin/bash \
             -e CORE=cps2 -e SKIP_STOCK=1 -e SEED="$SEED" -e TRIALS="$TRIALS" \
             -e JTCORE_EXTRA="$extra" -v "$PWD":/jtcores \
@@ -61,7 +61,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: cps2-unified
+          name: cps2-stall-diagnostic
           path: fitter_results
           retention-days: 30
           if-no-files-found: error

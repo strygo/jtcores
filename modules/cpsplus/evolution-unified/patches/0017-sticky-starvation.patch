@@ -1,0 +1,34 @@
+diff --git a/cores/cps2/hdl/jtcps2_game.v b/cores/cps2/hdl/jtcps2_game.v
+--- a/cores/cps2/hdl/jtcps2_game.v
++++ b/cores/cps2/hdl/jtcps2_game.v
+@@ -735,6 +735,18 @@
+ // the overlay resyncs the CPS+ status signals internally.
+ wire [`JTFRAME_COLORW-1:0] cpsp_red, cpsp_green, cpsp_blue;
+ 
++`ifdef CPSPLUS_STALL_DBG
++// Preserve brief FIFO starvation for a photograph after audio has recovered.
++// Only mark a tick that should have emitted music; normal idle and OSD pause
++// must not light the indicator. Clear on the same reset as the music stack.
++reg cpsp_starved;
++always @(posedge clk) begin
++    if(cpsp_music_reset) cpsp_starved <= 1'b0;
++    else if(cpsp_cen && dip_pause && cpsp_playing && cpsp_fempty)
++        cpsp_starved <= 1'b1;
++end
++`endif
++
+ cpsplus_dbg_overlay #(.CW(`JTFRAME_COLORW)) u_cpsp_dbg(
+     .clk        ( clk_gfx           ),
+     .pxl_cen    ( pxl_cen           ),
+@@ -748,7 +760,11 @@
+     .last_ctrl  ( cpsp_last_ctrl    ),
+     .fst        ( cpsp_fst          ),
+     .end_cause  ( cpsp_end          ),
++`ifdef CPSPLUS_STALL_DBG
++    .fifo_empty ( cpsp_starved      ), // last cyan cell: sticky starvation
++`else
+     .fifo_empty ( cpsp_fempty       ),
++`endif
+     .red_in     ( cpsp_red          ),
+     .green_in   ( cpsp_green        ),
+     .blue_in    ( cpsp_blue         ),
