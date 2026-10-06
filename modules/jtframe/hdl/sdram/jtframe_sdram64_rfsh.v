@@ -16,8 +16,19 @@
     Version: 1.0
     Date: 29-4-2021 */
 /* verilator coverage_off */
+`ifdef JTFRAME_SDRAM_XL
+module jtframe_sdram64_rfsh #(parameter HF=1, RFSHCNT=9, XL=0,
+    // 128 MiB module under jtframe_sdram64: every refresh slot precharges all
+    // banks of both chips and then refreshes both (chip 0, then chip 1). One
+    // clock longer than a single-chip slot, RFSHCNT keeps its per-chip meaning
+    // and each chip sees the 64 MiB module's refresh timing. XL (one chip per
+    // slot, alternating) is left as the burst controller uses it; not both.
+    BOTH=0)
+(
+`else
 module jtframe_sdram64_rfsh #(parameter HF=1, RFSHCNT=9, XL=0)
 (
+`endif
     input               rst,
     input               clk,
 
@@ -36,8 +47,14 @@ module jtframe_sdram64_rfsh #(parameter HF=1, RFSHCNT=9, XL=0)
 // HF=0 -> 60MHz  (16.67ns)
 // HF=1 -> 100MHz (10ns)
 
+`ifdef JTFRAME_SDRAM_XL
+localparam NOPS = HF ? 7 : 4,                  // idle clocks after the last refresh command (tRFC)
+           RFRSH= BOTH ? 2 : (HF ? 2 : 1),      // first refresh command
+           STW  = RFRSH + (BOTH ? 2 : 1) + NOPS; // 10/6 as before, 11/8 with BOTH
+`else
 localparam STW  = 3+7-(HF==1? 0 : 4),
            RFRSH= HF?2:1;
+`endif
 
 localparam CW=6;
 localparam [STW-1:0] ONE=1;
@@ -115,7 +132,16 @@ always @(posedge clk) begin
                 rfshing <= 0;
             end
         end
+`ifdef JTFRAME_SDRAM_XL
+        if( BOTH ) begin
+            // slot: precharge-all chip 0, precharge-all chip 1, refresh chip 0, refresh chip 1, tRFC
+            cmd  <= (st[0] || st[1]) ? CMD_PRECHARGE : ( (st[RFRSH] || st[RFRSH+1]) ? CMD_REFRESH : CMD_NOP );
+            chip <= st[1] | st[RFRSH+1];
+        end else
+            cmd <= st[0] ? CMD_PRECHARGE : ( st[RFRSH] ? CMD_REFRESH : CMD_NOP );
+`else
         cmd <= st[0] ? CMD_PRECHARGE : ( st[RFRSH] ? CMD_REFRESH : CMD_NOP );
+`endif
     end
 end
 

@@ -28,17 +28,41 @@ wire        snd_cs, qsnd_cs,
 wire        obank;  // OBJ bank
 wire [15:0] oram_base;
 wire [18:0] snd_addr;
+`ifdef CPS2_Z80_512
+wire cps2_z80_ext;
+`endif
+`ifdef CPS2_QSND24
+`ifdef CPS2_QSND32
+wire [24:0] qsnd_addr; // capacity profile; address masks remain image-specific
+`else
+wire [23:0] qsnd_addr; // flat 24-bit QSound sample address (16 MiB library)
+`endif
+`else
 wire [22:0] qsnd_addr;
+`endif
 wire        prog_qsnd;
 wire [ 7:0] snd_data, qsnd_data;
 wire [17:1] ram_addr;
+`ifdef CPS2_PRG8
+wire [22:1] main_rom_addr;
+wire        prog_ext;
+`else
 wire [21:1] main_rom_addr;
+`endif
 wire [15:0] main_ram_data, main_rom_data, main_dout, mmr_dout;
 wire        main_rom_ok, main_ram_ok;
 wire        ppu1_cs, ppu2_cs, ppu_rstn, objcfg_cs;
 wire        raster;
 wire [19:0] rom1_addr, rom0_addr;
+`ifdef CPS2_SCREXT
+wire        rom1_ext;
+`endif
+`ifdef CPS2_OBJEXT
+wire [ 2:0] rom0_bank;
+wire        gfx_oram_ext, obj_ext;
+`else
 wire [ 1:0] rom0_bank;
+`endif
 wire [31:0] rom0_data, rom1_data;
 // Video RAM interface
 wire [17:1] vram_dma_addr;
@@ -117,7 +141,11 @@ jtframe_cen48 u_cen48(
 assign clk_gfx = clk;
 assign rst_gfx = rst;
 
-always @(posedge clk) rst_game <= hold_rst | rst48;
+always @(posedge clk) rst_game <= hold_rst | rst48
+`ifdef CPS2_UNIFIED
+    | cpsp_game_hold
+`endif
+    ;
 
 
 localparam REGSIZE=24;
@@ -128,6 +156,9 @@ wire busack_cpu;
 assign busack = busack_cpu | turbo;
 
 jtcps2_main u_main(
+`ifdef CPS2_PRG8
+    .prog_ext    ( prog_ext         ),
+`endif
     .rst        ( rst_game          ),
     .clk_rom    ( clk               ),
     .clk        ( clk48             ),
@@ -217,6 +248,9 @@ end
 assign dip_flip = video_flip;
 
 jtcps1_video #(REGSIZE) u_video(
+`ifdef CPS2_OBJEXT
+    .oram_ext       ( gfx_oram_ext  ),
+`endif
     .rst            ( rst_video     ),
     .clk            ( clk_gfx       ),
     .clk_cpu        ( clk48         ),
@@ -291,6 +325,9 @@ jtcps1_video #(REGSIZE) u_video(
     .vram_rfsh_en   ( vram_rfsh_en  ),
 
     // GFX ROM interface
+`ifdef CPS2_SCREXT
+    .rom1_ext       ( rom1_ext      ),
+`endif
     .rom1_addr      ( rom1_addr     ),
     .rom1_half      ( rom1_half     ),
     .rom1_data      ( rom1_data     ),
@@ -327,7 +364,11 @@ always @(posedge clk48, posedge rst) begin
     if( rst )
         qsnd_rst  <= 1;
     else
-        qsnd_rst  <= ~z80_rstn;
+        qsnd_rst  <= ~z80_rstn
+`ifdef CPS2_UNIFIED
+            | cpsp_game_hold
+`endif
+            ;
 end
 
 wire vol_up   = ~(coin[0] | joystick1[3]);
@@ -356,6 +397,9 @@ jtcps15_sound u_sound(
     .main_waitn ( main_waitn        ),
 
     // ROM
+`ifdef CPS2_Z80_512
+    .cps2_z80_ext( cps2_z80_ext      ),
+`endif
     .rom_addr   ( snd_addr          ),
     .rom_cs     ( snd_cs            ),
     .rom_data   ( snd_data          ),
@@ -401,12 +445,16 @@ wire        cpsp_cen = cpsp_cen_v[0];
 // arranged VOLUME so the music can be balanced against the native SFX.
 wire        cpsp_osd_en = 1'b1;             // tap always enabled
 wire [ 1:0] cpsp_vol    = status[15:14];    // 0=100% 1=125% 2=150% 3=75%
+`ifndef CPS2_UNIFIED
 reg         cpsp_boot_go, cpsp_boot_arm;
+`endif
 reg         cpsp_frame,   lvbl_l;
 
 always @(posedge clk) begin
+`ifndef CPS2_UNIFIED
     cpsp_boot_arm <= rst ? 1'b1 : cpsp_boot_arm & ioctl_rom;
     cpsp_boot_go  <= ~rst & cpsp_boot_arm & ~ioctl_rom;  // fire once post-reset, ROM+pack in DDR
+`endif
     lvbl_l       <= LVBL;
     cpsp_frame   <= lvbl_l & ~LVBL;             // ~60 Hz fade-law tick
 end
@@ -452,6 +500,9 @@ end
 // below has something to drive in every build; without CPSPLUS_DBG they are
 // simply unused and optimise away.
 wire [3:0] cpsp_status;
+`ifdef CPS2_UNIFIED
+assign cpsp_music_status = cpsp_status;
+`endif
 wire [7:0] cpsp_last_cmd;
 wire       cpsp_last_mapped, cpsp_playing;
 wire [2:0] cpsp_last_verb, cpsp_fst;
@@ -459,7 +510,11 @@ wire [3:0] cpsp_end;
 wire       cpsp_last_ctrl, cpsp_fempty;
 
 cpsplus_top u_cpsplus(
+`ifdef CPS2_UNIFIED
+    .rst            ( cpsp_music_reset ),
+`else
     .rst            ( rst           ),
+`endif
     .clk            ( clk           ),
     .main_addr      ( main2qs_addr  ),
     .main_dout      ( main_dout     ),
@@ -476,10 +531,21 @@ cpsplus_top u_cpsplus(
     .playing        ( cpsp_playing  ),
     .trk_rate       ( cpsp_rate     ),
     .base_addr      ( 32'h3000_0000 ),  // MRA ROM image base in DDR
+`ifdef CPS2_UNIFIED
+    .base_indirect  ( cpsp_music_indirect ),
+    .extent_valid   ( 1'b1               ),
+    .extent_bytes   ( cpsp_music_extent  ),
+`else
     .base_indirect  ( 1'b1          ),  // pack pointer at image bytes 8-9
+`endif
     .osd_en         ( cpsp_osd_en   ),
+`ifdef CPS2_UNIFIED
+    .boot_go        ( cpsp_music_boot ),
+    .ready          ( cpsp_music_ready ),
+`else
     .boot_go        ( cpsp_boot_go  ),
     .ready          (               ),
+`endif
     .magic_ok       (               ),
     .status         ( cpsp_status   ),
     .last_cmd       ( cpsp_last_cmd ),
@@ -521,6 +587,13 @@ jtframe_limsum #(.WI(16), .K(2)) u_cpsp_mixr(
 `endif
 /* verilator tracing_on */
 jtcps1_sdram #(.CPS(2), .REGSIZE(REGSIZE)) u_sdram (
+`ifdef CPS2_PRG8
+    .cps2_prog_ext ( prog_ext       ),
+`endif
+`ifdef CPS2_OBJEXT
+    .cps2_obj_ext  ( obj_ext        ),
+    .gfx_oram_ext  ( gfx_oram_ext   ),
+`endif
     .rst         ( rst_sdram     ),
     .clk         ( clk           ),
     .clk_gfx     ( clk_gfx       ),
@@ -533,7 +606,13 @@ jtcps1_sdram #(.CPS(2), .REGSIZE(REGSIZE)) u_sdram (
     .cfg_we      ( cfg_we        ),
 
     // ROM LOAD
+`ifdef CPS2_QSND24
+    .ioctl_addr  ( ioctl_addr    ), // all 27 bits: a flat QSound image with the object slice is 64.25 MiB
+`elsif CPS2_OBJEXT
+    .ioctl_addr  ( ioctl_addr[25:0] ), // 27-bit bus under JTFRAME_SDRAM_XL; images stay below 64 MiB
+`else
     .ioctl_addr  ( ioctl_addr    ),
+`endif
     .ioctl_dout  ( ioctl_dout    ),
     .ioctl_din   ( ioctl_din     ),
     .ioctl_wr    ( ioctl_wr      ),
@@ -601,6 +680,9 @@ jtcps1_sdram #(.CPS(2), .REGSIZE(REGSIZE)) u_sdram (
     .snd_ok      ( snd_ok        ),
     .pcm_ok      ( qsnd_ok       ),
 
+`ifdef CPS2_Z80_512
+    .cps2_z80_ext ( cps2_z80_ext  ),
+`endif
     .snd_addr    ( snd_addr      ),
     .pcm_addr    ( qsnd_addr     ),
 
@@ -616,6 +698,9 @@ jtcps1_sdram #(.CPS(2), .REGSIZE(REGSIZE)) u_sdram (
 
     .rom0_addr   ( rom0_addr     ),
     .rom0_bank   ( rom0_bank     ),
+`ifdef CPS2_SCREXT
+    .rom1_ext    ( rom1_ext      ),
+`endif
     .rom1_addr   ( rom1_addr     ),
 
     .rom0_half   ( rom0_half     ),

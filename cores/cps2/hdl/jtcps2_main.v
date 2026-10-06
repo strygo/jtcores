@@ -65,7 +65,12 @@ module jtcps2_main(
     input              ram_ok,
     // ROM access
     output reg         rom_cs,
+`ifdef CPS2_PRG8
+    input              prog_ext,
+    output reg  [22:1] rom_addr,
+`else
     output reg  [21:1] rom_addr,
+`endif
     input       [15:0] rom_data,
     input              rom_ok,
     // DIP switches
@@ -107,6 +112,14 @@ reg  [15:0] in0, in1, in2;
 reg         in0_cs, in1_cs, in2_cs, vol_cs, out_cs, obank_cs;
 
 wire [15:0] rom_dec;
+
+// Plaintext 4 MiB extension. SDRAM mapping skips the RAM allocation.
+`ifdef CPS2_PRG8
+wire ext_window = prog_ext && A[23:21]>=3'b101 && A[23:21]<=3'b110;
+wire [2:0] decrypt_fc = ext_window ? 3'b101 : FC;
+`else
+wire [2:0] decrypt_fc = FC;
+`endif
 
 wire        dec_en;
 wire        BRn, BGACKn, BGn;
@@ -176,14 +189,19 @@ always @(posedge clk, posedge rst) begin
         pre_vram_cs <= 1'b0;
         pre_oram_cs <= 1'b0;
         io_cs        <= 1'b0;
-        rom_addr     <= 21'd0;
+        rom_addr     <= 0;
         objcfg_cs    <= 0;
         main2qs_cs   <= 0;
         main2qs_addr <= 23'd0;
     end else begin
         if( !ASn && BGACKn ) begin // PAL PRG1 12H
+`ifdef CPS2_PRG8
+            rom_addr    <= ext_window ? {1'b1, ~A[21], A[20:1]} : {1'b0, A[21:1]};
+            rom_cs      <= A[23:22] == 2'b00 || (ext_window && RnW);
+`else
             rom_addr    <= A[21:1];
             rom_cs      <= A[23:22] == 2'b00;
+`endif
             pre_ram_cs  <= &A[23:16];
             pre_vram_cs <= A[23:18] == 6'b1001_00 && A[17:16]!=2'b11;
             pre_oram_cs <= A[23:20] == 4'h7 && A[19:16]==oram_base[11:8];
@@ -389,7 +407,7 @@ jtcps2_decrypt u_decrypt(
     .prog_we    ( key_we    ),
 
     // Control
-    .fc         ( FC        ),
+    .fc         ( decrypt_fc),
 
     .dec_en     ( dec_en    ),
 
@@ -490,7 +508,7 @@ initial begin
     obank        = 1'b0;
     oram_base    = 16'd0;
     rom_cs       = 1'b0;
-    rom_addr     = 21'd0;
+    rom_addr     = 0;
     eeprom_sclk  = 1'b0;
     eeprom_sdi   = 1'b0;
     eeprom_scs   = 1'b0;

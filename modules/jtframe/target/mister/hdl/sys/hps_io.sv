@@ -143,6 +143,13 @@ module hps_io #(parameter CONF_STR="", CONF_STR_BRAM=1, PS2DIV=0, WIDE=0, VDNUM=
 	output reg        ioctl_download = 0, // signal indicating an active download
 	output reg [15:0] ioctl_index,        // menu index used to upload the file
 	output reg        ioctl_wr,
+	`ifdef CPS2_NATIVE128
+    output reg        ioctl_overflow = 0,
+`endif
+`ifdef CPS2_UNIFIED
+    // Full DDR transfer extent; native addressing remains 27 bits.
+    output reg [31:0] ioctl_length = 0,
+`endif
 	output reg [26:0] ioctl_addr,         // in WIDE mode address will be incremented by 2
 	output reg [DW:0] ioctl_dout,
 	output reg        ioctl_upload = 0,   // signal indicating an active upload
@@ -670,6 +677,12 @@ always@(posedge clk_sys) begin : fio_block
 									end
 									else if(io_din[7:0]) begin
 										addr <= 0;
+`ifdef CPS2_UNIFIED
+                                        ioctl_length <= 0;
+`endif
+`ifdef CPS2_NATIVE128
+                                        ioctl_overflow <= 0;
+`endif
 										ioctl_download <= 1;
 									end
 									else begin
@@ -679,12 +692,21 @@ always@(posedge clk_sys) begin : fio_block
 									end
 
 								1: begin
+`ifdef CPS2_UNIFIED
+                                        if(ioctl_download) ioctl_length[15:0] <= io_din;
+`endif
 										ioctl_addr[15:0] <= io_din;
 										addr[15:0] <= io_din;
 									end
 
 								2: begin
+`ifdef CPS2_UNIFIED
+                                        if(ioctl_download) ioctl_length[31:16] <= io_din;
+`endif
 										ioctl_addr[26:16] <= io_din[10:0];
+`ifdef CPS2_NATIVE128
+                                        ioctl_overflow <= ioctl_overflow || |io_din[15:11];
+`endif
 										addr[26:16] <= io_din[10:0];
 									end
 							endcase
@@ -696,6 +718,9 @@ always@(posedge clk_sys) begin : fio_block
 							ioctl_dout <= io_din[DW:0];
 							wr   <= 1;
 							addr <= addr + (WIDE ? 2'd2 : 2'd1);
+`ifdef CPS2_NATIVE128
+                            if(addr >= (WIDE ? 27'h7fffffe : 27'h7ffffff)) ioctl_overflow <= 1;
+`endif
 						end
 						else begin
 							ioctl_addr <= ioctl_addr + (WIDE ? 2'd2 : 2'd1);

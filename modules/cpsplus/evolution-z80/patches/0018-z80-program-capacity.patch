@@ -1,0 +1,260 @@
+diff --git a/modules/jtframe/hdl/inc/jtframe_cps2_native.vh b/modules/jtframe/hdl/inc/jtframe_cps2_native.vh
+--- a/modules/jtframe/hdl/inc/jtframe_cps2_native.vh
++++ b/modules/jtframe/hdl/inc/jtframe_cps2_native.vh
+@@ -77,3 +77,28 @@
+     begin native_fixed = address < 16 || address >= 64; end
+ endfunction
+ `endif
++
++`ifdef CPS2_Z80_512
++`ifndef CPS2_QSND32
++    `CPS2_Z80_512_requires_CPS2_QSND32
++`endif
++// Same descriptor, with the Z80 extent and every following start checked.
++function [7:0] native_expected_z80;
++    input [6:0] address;
++    input wide, expanded;
++    reg [31:0] word_value;
++    integer lane;
++    begin
++        for(lane=0;lane<4;lane=lane+1)
++            word_value[lane*8+:8]=native_expected_profile({address[6:2],2'b00}+lane[6:0],wide);
++        if(expanded) case(address[6:2])
++            5'd0: word_value=word_value+32'h01000000;
++            5'd1: word_value=word_value+32'h01000100;
++            5'd21: word_value=32'h00080000;
++            5'd22,5'd24,5'd26,5'd28: word_value=word_value+32'h00040000;
++            default: ;
++        endcase
++        native_expected_z80=word_value[{address[1:0],3'b000}+:8];
++    end
++endfunction
++`endif
+diff --git a/cores/cps1/hdl/jtcps1_prom_we.v b/cores/cps1/hdl/jtcps1_prom_we.v
+--- a/cores/cps1/hdl/jtcps1_prom_we.v
++++ b/cores/cps1/hdl/jtcps1_prom_we.v
+@@ -64,6 +64,9 @@
+ `endif
+ `ifdef CPS2_QSND32
+     ,output reg         cps2_qsnd32 = 0
++`ifdef CPS2_Z80_512
++    ,output reg         cps2_z80_ext = 0
++`endif
+ `endif
+ `ifdef CPS2_GFX64
+     ,output reg         cps2_gfx_full = 1'b0
+@@ -77,6 +80,31 @@
+ reg [26:0] native_next=0;
+ `ifdef CPS2_QSND32
+ reg native_sample32=0;
++`ifdef CPS2_Z80_512
++reg native_large_z80=0;
++wire native_early_z80 = ioctl_addr==3 ? ioctl_dout==8'h22 : native_large_z80;
++wire [26:0] native_end = (native_sample32 ? NATIVE32_END : NATIVE_END) +
++                         (native_large_z80 ? 27'h40000 : 27'd0);
++wire native_early_wide = ioctl_addr==14 ? ioctl_dout==3 : native_sample32;
++wire native_header_match = ioctl_addr<8 ?
++    (ioctl_dout==native_expected_z80(ioctl_addr[6:0],0,native_early_z80) ||
++     ioctl_dout==native_expected_z80(ioctl_addr[6:0],1,native_early_z80)) :
++    ioctl_dout==native_expected_z80(ioctl_addr[6:0],native_early_wide,native_large_z80);
++wire [15:0] native_delta = native_large_z80 ? 16'h0100 : 16'd0;
++wire native_mirror_ok = snd_start==16'h2000 && pcm_start==16'h2100+native_delta &&
++    qsnd_start==(native_sample32 ? 16'ha100 : 16'h6100)+native_delta &&
++    gfx_start==(native_sample32 ? 16'ha108 : 16'h6108)+native_delta;
++always @(posedge clk) begin
++    if((ioctl_rom && !native_last_rom) || (ioctl_wr && ioctl_rom && ioctl_addr==0)) begin
++        native_large_z80<=0;
++        cps2_z80_ext<=0;
++    end else begin
++        if(ioctl_wr && ioctl_rom && !ioctl_ram && ioctl_addr==3) native_large_z80<=ioctl_dout==8'h22;
++        if(native_finish && !ioctl_rom && !native_bad && (!prog_we || prog_rdy))
++            cps2_z80_ext<=native_large_z80;
++    end
++end
++`else
+ wire [26:0] native_end = native_sample32 ? NATIVE32_END : NATIVE_END;
+ wire native_early_wide = ioctl_addr==14 ? ioctl_dout==3 : native_sample32;
+ wire native_header_match = ioctl_addr<8 ?
+@@ -86,6 +114,7 @@
+ wire native_mirror_ok = snd_start==16'h2000 && pcm_start==16'h2100 &&
+     qsnd_start==(native_sample32 ? 16'ha100 : 16'h6100) &&
+     gfx_start==(native_sample32 ? 16'ha108 : 16'h6108);
++`endif
+ always @(posedge clk) begin
+     if((ioctl_rom && !native_last_rom) || (ioctl_wr && ioctl_rom && ioctl_addr==0)) native_sample32<=0;
+     else if(ioctl_wr && ioctl_rom && !ioctl_ram && ioctl_addr==14) native_sample32<=ioctl_dout==3;
+diff --git a/modules/jtframe/target/mister/hdl/jtframe_mister_dwnld.v b/modules/jtframe/target/mister/hdl/jtframe_mister_dwnld.v
+--- a/modules/jtframe/target/mister/hdl/jtframe_mister_dwnld.v
++++ b/modules/jtframe/target/mister/hdl/jtframe_mister_dwnld.v
+@@ -195,8 +195,24 @@
+ reg native_sample32=0;
+ reg [63:0] native_mirror=0;
+ wire native_early_wide = ddram_cnt==1 ? ddram_dout[55:48]==3 : native_sample32;
++`ifdef CPS2_Z80_512
++reg native_large_z80=0;
++wire native_early_z80 = ddram_cnt==0 ? ddram_dout[31:16]==16'h2200 : native_large_z80;
++wire [26:0] native_end = (native_sample32 ? NATIVE32_END : NATIVE_END) +
++                         (native_large_z80 ? 27'h40000 : 27'd0);
++wire [63:0] native_delta = native_large_z80 ? 64'h0100010001000000 : 64'd0;
++wire native_mirror_ok = native_mirror ==
++    (native_sample32 ? 64'ha100a10821002000 : 64'h6100610821002000)+native_delta;
++always @(posedge clk, posedge rst) begin
++    if(rst) native_large_z80<=0;
++    else if(new_rom_download) native_large_z80<=0;
++    else if(ddr_dwn && ddram_wait && !ddram_busy && ddram_dout_ready && ddram_page==0 && ddram_cnt==0)
++        native_large_z80<=native_early_z80;
++end
++`else
+ wire [26:0] native_end = native_sample32 ? NATIVE32_END : NATIVE_END;
+ wire native_mirror_ok = native_mirror == (native_sample32 ? 64'ha100a10821002000 : 64'h6100610821002000);
++`endif
+ always @(posedge clk, posedge rst) begin
+     if(rst) begin native_sample32<=0; native_mirror<=0; end
+     else if(new_rom_download) begin native_sample32<=0; native_mirror<=0; end
+@@ -213,10 +229,17 @@
+     for(header_lane=0;header_lane<8;header_lane=header_lane+1)
+         if(native_fixed({ddram_cnt[3:0],3'b000}+header_lane[6:0]) &&
+ `ifdef CPS2_QSND32
++`ifdef CPS2_Z80_512
++           (ddram_cnt==0 ?
++            (ddram_dout[header_lane*8+:8] != native_expected_z80({ddram_cnt[3:0],3'b000}+header_lane[6:0],0,native_early_z80) &&
++             ddram_dout[header_lane*8+:8] != native_expected_z80({ddram_cnt[3:0],3'b000}+header_lane[6:0],1,native_early_z80)) :
++             ddram_dout[header_lane*8+:8] != native_expected_z80({ddram_cnt[3:0],3'b000}+header_lane[6:0],native_early_wide,native_early_z80)))
++`else
+            (ddram_cnt==0 ?
+             (ddram_dout[header_lane*8+:8] != native_expected_profile({ddram_cnt[3:0],3'b000}+header_lane[6:0],0) &&
+              ddram_dout[header_lane*8+:8] != native_expected_profile({ddram_cnt[3:0],3'b000}+header_lane[6:0],1)) :
+              ddram_dout[header_lane*8+:8] != native_expected_profile({ddram_cnt[3:0],3'b000}+header_lane[6:0],native_early_wide)))
++`endif
+ `else
+            ddram_dout[header_lane*8+:8] != native_expected({ddram_cnt[3:0],3'b000}+header_lane[6:0]))
+ `endif
+diff --git a/cores/cps1/hdl/jtcps1_sdram.v b/cores/cps1/hdl/jtcps1_sdram.v
+--- a/cores/cps1/hdl/jtcps1_sdram.v
++++ b/cores/cps1/hdl/jtcps1_sdram.v
+@@ -186,6 +186,9 @@
+     input    [ 3:0] ba_rdy,
+ 
+     input    [15:0] data_read,
++`ifdef CPS2_Z80_512
++    output          cps2_z80_ext,
++`endif
+     output          dump_flag
+ );
+ 
+@@ -325,6 +328,9 @@
+     .cps2_qsnd_ext   ( cps2_qsnd_ext ),
+ `ifdef CPS2_QSND32
+     .cps2_qsnd32     ( cps2_qsnd32 ),
++`ifdef CPS2_Z80_512
++    .cps2_z80_ext    ( cps2_z80_ext ),
++`endif
+ `endif
+ `ifdef CPS2_GFX64
+     .cps2_gfx_full   ( cps2_gfx_full ),
+diff --git a/cores/cps2/hdl/jtcps2_game.v b/cores/cps2/hdl/jtcps2_game.v
+--- a/cores/cps2/hdl/jtcps2_game.v
++++ b/cores/cps2/hdl/jtcps2_game.v
+@@ -28,6 +28,9 @@
+ wire        obank;  // OBJ bank
+ wire [15:0] oram_base;
+ wire [18:0] snd_addr;
++`ifdef CPS2_Z80_512
++wire cps2_z80_ext;
++`endif
+ `ifdef CPS2_QSND24
+ `ifdef CPS2_QSND32
+ wire [24:0] qsnd_addr; // capacity profile; address masks remain image-specific
+@@ -386,6 +389,9 @@
+     .main_waitn ( main_waitn        ),
+ 
+     // ROM
++`ifdef CPS2_Z80_512
++    .cps2_z80_ext( cps2_z80_ext      ),
++`endif
+     .rom_addr   ( snd_addr          ),
+     .rom_cs     ( snd_cs            ),
+     .rom_data   ( snd_data          ),
+@@ -644,6 +650,9 @@
+     .snd_ok      ( snd_ok        ),
+     .pcm_ok      ( qsnd_ok       ),
+ 
++`ifdef CPS2_Z80_512
++    .cps2_z80_ext ( cps2_z80_ext  ),
++`endif
+     .snd_addr    ( snd_addr      ),
+     .pcm_addr    ( qsnd_addr     ),
+ 
+diff --git a/cores/cps15/hdl/jtcps15_sound.v b/cores/cps15/hdl/jtcps15_sound.v
+--- a/cores/cps15/hdl/jtcps15_sound.v
++++ b/cores/cps15/hdl/jtcps15_sound.v
+@@ -38,6 +38,9 @@
+     output            main_waitn,
+ 
+     // ROM
++`ifdef CPS2_Z80_512
++    input             cps2_z80_ext,
++`endif
+     output reg [18:0] rom_addr, // 512 kByte
+     output reg        rom_cs,
+     input      [ 7:0] rom_data,
+@@ -79,7 +82,12 @@
+ wire        cpu_cen, cen_extra;
+ wire [ 7:0] dec_dout, ram_dout, cpu_dout, bus_din;
+ wire [15:0] A, bus_A;
++`ifdef CPS2_Z80_512
++reg  [ 4:0] bank;
++wire [4:0] selected_bank = {bus_din[4] & cps2_z80_ext,bus_din[3:0]};
++`else
+ reg  [ 3:0] bank;
++`endif
+ reg  [ 7:0] cpu_din;
+ reg         rstn;
+ reg         ram_cs, bank_cs, qsnd_wr, qsnd_rd;
+@@ -163,7 +171,11 @@
+ 
+ always @(*) begin
+     rom_cs  = !bus_mreqn && (!bus_A[15] || bus_A[15:14]==2'b10);
++`ifdef CPS2_Z80_512
++    rom_addr = bus_A[15] ? ({ bank, bus_A[13:0] } + 19'h8000) : { 4'b0, bus_A[14:0] };
++`else
+     rom_addr = (bus_A[15] ? ({ 1'b0, bank, bus_A[13:0] } + 19'h8000) : { 4'b0, bus_A[14:0] });
++`endif
+     ram_cs   = !bus_mreqn && (bus_A[15:12] == 4'hc || bus_A[15:12]==4'hf);
+     qsnd_wr  = !bus_mreqn && !bus_wrn && (bus_A[15:12] == 4'hd && bus_A[2:0]<=3'd2);
+     bank_cs  = !bus_mreqn && !bus_wrn && (bus_A[15:12] == 4'hd && bus_A[2:0]==3'd3);
+@@ -175,12 +187,22 @@
+ 
+ always @(posedge clk48, posedge rst) begin
+     if ( rst ) begin
++`ifdef CPS2_Z80_512
++        bank    <= 5'd0;
++`else
+         bank    <= 4'd0;
++`endif
+         cpu2dsp <= 24'd0;
+         dsp_rst <= 1;
+     end else begin
+         if( bank_cs ) begin
++`ifdef CPS2_Z80_512
++            // The last two selections are unpopulated, decoded to bank 0.
++            // Legacy images ignore bit 4 exactly as before.
++            bank    <= cps2_z80_ext && selected_bank>=30 ? 5'd0 : selected_bank;
++`else
+             bank    <= bus_din[3:0];
++`endif
+             dsp_rst <= ~bus_din[7];
+         end
+         if( qsnd_wr ) begin
+@@ -197,7 +219,11 @@
+ always @(*) begin
+     cpu_din =  rom_cs ? ( A[15] ? rom_data : dec_dout ) : (
+                ram_cs ? ram_dout : (
++`ifdef CPS2_Z80_512
++              qsnd_rd ? { dsp_rdy_n, 2'b11, bank[4] | ~cps2_z80_ext, bank[3:0] } : 8'hff
++`else
+               qsnd_rd ? { dsp_rdy_n, 3'b111, bank } : 8'hff
++`endif
+               ));
+ end
+ 

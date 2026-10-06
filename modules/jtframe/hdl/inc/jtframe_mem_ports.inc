@@ -63,6 +63,15 @@
                     prog_addr,
 `ifdef CPSPLUS
     // CPS+ arranged-audio DDR client (MiSTer target only)
+`ifdef CPS2_UNIFIED
+    input           cpsp_game_hold,
+    input           cpsp_music_reset,
+    input           cpsp_music_boot,
+    input           cpsp_music_indirect,
+    input   [31:0]  cpsp_music_extent,
+    output          cpsp_music_ready,
+    output  [3:0]   cpsp_music_status,
+`endif
     input           cpsp_busy,
     output  [ 7:0]  cpsp_burstcnt,
     output  [28:0]  cpsp_addr,

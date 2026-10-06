@@ -89,6 +89,12 @@ module cpsplus_ddr #(parameter
     // control / status
     input      [31:0] base_addr,     // pack (or MRA image) DDR byte address,
                                      // 16 B aligned (0x30000000 in practice)
+`ifdef CPSPLUS_EXTENT
+    // Received bytes starting at base_addr, independent of native IOCTL width.
+    // Indirect loads subtract their pack pointer before checking CPK extents.
+    input             extent_valid,
+    input      [31:0] extent_bytes,
+`endif
     input             base_indirect, // 1 = dereference MRA header bytes 8-9
     input             osd_en,        // OSD "arranged audio" enable
     input             boot_go,       // pulse: (re)load the pack
@@ -181,6 +187,9 @@ reg         dd_run;
 reg  [ 7:0] dd_bcnt, dd_bidx;
 reg         dd_beat;
 reg  [63:0] dd_data;
+`ifdef CPSPLUS_EXTENT
+wire [7:0] prefetch_words;
+`endif
 
 always @(posedge clk) begin
     if (rst) begin
@@ -191,7 +200,12 @@ always @(posedge clk) begin
         dd_beat <= 1'b0;
         if (bt_go || pf_go) begin
             ddram_addr     <= bt_go ? bt_addr : pf_addr;
-            ddram_burstcnt <= bt_go ? bt_len  : 8'd8;
+            ddram_burstcnt <= bt_go ? bt_len :
+`ifdef CPSPLUS_EXTENT
+                              prefetch_words;
+`else
+                              8'd8;
+`endif
             ddram_rd       <= 1'b1;
             dd_bcnt        <= 8'd0;
             dd_run         <= 1'b1;
@@ -243,6 +257,66 @@ reg  [ 7:0] h_law, h_ctrl_dflt;
 reg  [15:0] h_ctrl_start;
 reg  [31:0] h_nverbs;
 reg  [63:0] vbuf [0:15];         // 32 control-verb entries, 2 per word
+
+`ifdef CPSPLUS_EXTENT
+reg [31:0] pack_bytes;
+reg [31:0] h_data_size, h_data_size_hi, h_file_size, h_file_size_hi;
+reg [63:0] index0, index1, index2;
+reg memory_error;
+wire [32:0] input_end = {1'b0,base_addr} + {1'b0,extent_bytes};
+wire [32:0] pack_end = {1'b0,pack_base} + {1'b0,pack_bytes};
+wire [32:0] rounded_pack_end = pack_end + 33'd7;
+wire [29:0] pack_end_word = rounded_pack_end[32:3];
+wire [29:0] prefetch_left = pack_end_word - {1'b0,pf_addr};
+assign prefetch_words = !extent_valid || prefetch_left >= 30'd8 ? 8'd8 : {4'd0,prefetch_left[3:0]};
+wire header_range_ok =
+    h_data_hi==0 && h_data_size_hi==0 && h_file_size_hi==0 &&
+    h_file_size==pack_bytes && h_data_lo<=pack_bytes &&
+    h_data_size==pack_bytes-h_data_lo &&
+    h_trig_off>=4096 && h_trig_off[2:0]==0 &&
+    h_trig_rows>0 && h_trig_rows<=TRIG_ROWS && !h_trig_rows[0] &&
+    h_trig_off<=h_idx_off && h_trig_rows*4<=h_idx_off-h_trig_off &&
+    h_idx_off[2:0]==0 && h_idx_off<=h_data_lo &&
+    h_trk_cnt>0 && h_trk_cnt<=MAXTRK && h_trk_cnt*32<=h_data_lo-h_idx_off &&
+    h_data_lo[5:0]==0 && h_nverbs<=32 && h_law<=2;
+function track_range_ok(input [63:0] a,b,c,d);
+    begin
+        track_range_ok = a[31:0]<=h_data_size && a[63:32]>0 &&
+            a[63:32]<=h_data_size-a[31:0] && a[5:0]==0 &&
+            b[63:32]<=a[63:32] && c[63:32]<=a[63:32] &&
+            (c[63:32]==0 || b[63:32]<c[63:32]) &&
+            (d[19:16]==1 || d[19:16]==2) && d[15:0]!=0 && !d[31];
+    end
+endfunction
+function trigger_range_ok(input [31:0] row);
+    begin
+        trigger_range_ok = row[2:0]!=1 || {20'd0,row[31:28],row[15:8]}<h_trk_cnt;
+    end
+endfunction
+// The final physical DDR word may include up to seven bytes past the file.
+// Mask those lanes; never issue a burst past that final word.
+// Capture the partial final word at the same edge that starts the burst.
+// The pack extent is fixed for its lifetime; boot waits for the old burst to
+// drain before changing it. Keep wide address arithmetic off buffer writes.
+reg pf_tail_mask;
+reg [2:0] pf_tail_bytes, pf_tail_index;
+always @(posedge clk) begin
+    if(rst) pf_tail_mask<=0;
+    else if(pf_go) begin
+        pf_tail_mask<=extent_valid && pack_end[2:0]!=0 && prefetch_left<=30'd8;
+        pf_tail_bytes<=pack_end[2:0];
+        pf_tail_index<=prefetch_words[2:0]-3'd1;
+    end
+end
+reg [63:0] bounded_data;
+integer lane;
+always @(*) begin
+    bounded_data=dd_data;
+    for(lane=0;lane<8;lane=lane+1)
+        if(pf_tail_mask && dd_bidx[2:0]==pf_tail_index && lane>=pf_tail_bytes)
+            bounded_data[lane*8+:8]=0;
+end
+`endif
 
 // chunk buffer for the trigger table stream (32 words = 64 rows)
 reg  [63:0] cbuf [0:31];
@@ -336,6 +410,12 @@ always @(posedge clk) begin
         end else case (ist)
             I_STOPW: if (!pf_busy && !dd_run && !ddram_rd) begin
                 // the burst engine is ours until I_DONE/I_FAIL
+`ifdef CPSPLUS_EXTENT
+                if(extent_valid && (base_addr[3:0]!=0 || base_addr<32'h30000000 ||
+                   input_end>33'h040000000 || extent_bytes<4096)) begin
+                    status<=4'd6; loading<=0; ist<=I_FAIL;
+                end else
+`endif
                 if (base_indirect) begin
                     bt_go   <= 1'b1;
                     bt_addr <= {base_addr[31:4], 1'b1};  // word at byte +8
@@ -343,6 +423,9 @@ always @(posedge clk) begin
                     ist     <= I_PTR_W;
                 end else begin
                     pack_base <= base_addr;
+`ifdef CPSPLUS_EXTENT
+                    pack_bytes<=extent_bytes;
+`endif
                     ist       <= I_HDR_GO;
                 end
             end
@@ -351,7 +434,15 @@ always @(posedge clk) begin
                     status  <= 4'd4;                 // no pack appended
                     loading <= 1'b0;
                     ist     <= I_FAIL;
+`ifdef CPSPLUS_EXTENT
+                end else if(extent_valid && ({6'd0,ptr16,10'd0}>extent_bytes ||
+                           extent_bytes-{6'd0,ptr16,10'd0}<4096)) begin
+                    status<=4'd6; loading<=0; ist<=I_FAIL;
+`endif
                 end else begin
+`ifdef CPSPLUS_EXTENT
+                    pack_bytes<=extent_bytes-{6'd0,ptr16,10'd0};
+`endif
                     pack_base <= base_addr + {6'd0, ptr16, 10'd0};
                     ist       <= I_HDR_GO;
                 end
@@ -370,6 +461,10 @@ always @(posedge clk) begin
                         status  <= 4'd5;             // fail open
                         loading <= 1'b0;
                         ist     <= I_FAIL;
+`ifdef CPSPLUS_EXTENT
+                    end else if(extent_valid && (dd_data[47:32]>1 || dd_data[63:48]!=4096)) begin
+                        status<=4'd6; loading<=0; ist<=I_FAIL;
+`endif
                     end else magic_ok <= 1'b1;
                     8'd11: h_trig_off <= dd_data[63:32];
                     8'd12: begin
@@ -380,7 +475,19 @@ always @(posedge clk) begin
                         h_trk_cnt <= dd_data[31:0];
                         h_data_lo <= dd_data[63:32];
                     end
+`ifdef CPSPLUS_EXTENT
+                    8'd14: begin
+                        h_data_hi <= dd_data[31:0];
+                        h_data_size <= dd_data[63:32];
+                    end
+                    8'd15: begin
+                        h_data_size_hi <= dd_data[31:0];
+                        h_file_size <= dd_data[63:32];
+                    end
+                    8'd16: h_file_size_hi <= dd_data[31:0];
+`else
                     8'd14: h_data_hi <= dd_data[31:0];
+`endif
                     8'd17: h_page    <= dd_data[55:32];
                     8'd18: begin
                         h_off_cmd_hi <= dd_data[ 7: 0];
@@ -411,7 +518,11 @@ always @(posedge clk) begin
                 trig_base <= pack_base[31:3] + h_trig_off[31:3];
                 idx_base  <= pack_base[31:3] + h_idx_off[31:3];
                 fade_law  <= h_law[1:0];
-                if (h_data_hi != 32'd0) begin
+                if (h_data_hi != 32'd0
+`ifdef CPSPLUS_EXTENT
+                    || (extent_valid && !header_range_ok)
+`endif
+                   ) begin
                     status  <= 4'd6;                 // >4 GB: out of range
                     loading <= 1'b0;
                     ist     <= I_FAIL;
@@ -462,11 +573,19 @@ always @(posedge clk) begin
                 end
             end
             I_TRIG_W: if (dd_beat) begin
+`ifdef CPSPLUS_EXTENT
+                if(extent_valid && (!trigger_range_ok(dd_data[31:0]) || !trigger_range_ok(dd_data[63:32]))) begin
+                    status<=4'd6; loading<=0; ist<=I_FAIL;
+                end else begin
+`endif
                 cbuf[dd_bidx[4:0]] <= dd_data;
                 if (dd_bidx == {2'd0, chunk} - 8'd1) begin
                     wr_k <= 7'd0;
                     ist  <= I_TRIG_WR;
                 end
+`ifdef CPSPLUS_EXTENT
+                end
+`endif
             end
             I_TRIG_WR: begin
                 trig_we   <= 1'b1;
@@ -506,6 +625,17 @@ always @(posedge clk) begin
                 idx_we <= 1'b1;
                 idx_wa <= iw_done[TRK_AW+1:0] + {4'd0, dd_bidx[4:0]};
                 idx_wd <= dd_data;
+`ifdef CPSPLUS_EXTENT
+                case(dd_bidx[1:0])
+                    0: index0<=dd_data;
+                    1: index1<=dd_data;
+                    2: index2<=dd_data;
+                    default: ;
+                endcase
+                if(extent_valid && dd_bidx[1:0]==3 && !track_range_ok(index0,index1,index2,dd_data)) begin
+                    status<=4'd6; loading<=0; ist<=I_FAIL;
+                end else
+`endif
                 if (dd_bidx == {2'd0, chunk} - 8'd1) begin
                     iw_done <= iw_done + {8'd0, chunk};
                     ist     <= I_IDX_GO;
@@ -532,6 +662,12 @@ always @(posedge clk) begin
             I_FAIL: ;                                // wait for boot_go
             default: ist <= I_IDLE;                  // I_IDLE
         endcase
+`ifdef CPSPLUS_EXTENT
+        if(memory_error && extent_valid && ready) begin
+            cfg_we<=1; cfg_addr<=8'h07; cfg_data<=0;
+            bt_stop<=1; ready<=0; loading<=0; status<=4'd6; ist<=I_FAIL;
+        end
+`endif
     end
 end
 
@@ -543,6 +679,11 @@ reg  [ 3:0] fillA, fillB;
 reg         vA, vB;
 reg         pf_run;              // prefetch burst in flight
 reg         pf_dst;              // 0 = filling A, 1 = filling B
+`ifdef CPSPLUS_EXTENT
+wire request_in_pack = {1'b0,pmem_addr,3'b000}>={1'b0,data_base} && {1'b0,pmem_addr,3'b000}<pack_end;
+wire nextA_in_pack = {1'b0,baseA,3'b000}+33'd64<pack_end;
+wire nextB_in_pack = {1'b0,baseB,3'b000}+33'd64<pack_end;
+`endif
 
 wire [28:0] offA = pmem_addr - baseA;
 wire [28:0] offB = pmem_addr - baseB;
@@ -557,27 +698,58 @@ always @(posedge clk) begin
         fillA <= 4'd0;  fillB <= 4'd0;
         pf_run <= 1'b0;  pf_go <= 1'b0;
         pmem_ack <= 1'b0;
+`ifdef CPSPLUS_EXTENT
+        memory_error<=0;
+`endif
     end else begin
         pf_go    <= 1'b0;
         pmem_ack <= 1'b0;
+`ifdef CPSPLUS_EXTENT
+        if(boot_go) memory_error<=0;
+`endif
         // burst fill (beats are ours whenever pf_run — boot never overlaps)
         if (pf_run && dd_beat) begin
             if (!pf_dst) begin
-                bufA[dd_bidx[2:0]] <= dd_data;
+                bufA[dd_bidx[2:0]] <=
+`ifdef CPSPLUS_EXTENT
+                                     bounded_data;
+`else
+                                     dd_data;
+`endif
                 fillA <= {1'b0, dd_bidx[2:0]} + 4'd1;
             end else begin
-                bufB[dd_bidx[2:0]] <= dd_data;
+                bufB[dd_bidx[2:0]] <=
+`ifdef CPSPLUS_EXTENT
+                                     bounded_data;
+`else
+                                     dd_data;
+`endif
                 fillB <= {1'b0, dd_bidx[2:0]} + 4'd1;
             end
-            if (dd_bidx == 8'd7) pf_run <= 1'b0;
+            if (dd_bidx ==
+`ifdef CPSPLUS_EXTENT
+                (extent_valid ? ddram_burstcnt-8'd1 : 8'd7)
+`else
+                8'd7
+`endif
+               ) pf_run <= 1'b0;
         end
         // request service (ack is a single cycle; the player drops rd after)
         if (pmem_rd && !pmem_ack) begin
+`ifdef CPSPLUS_EXTENT
+            if(extent_valid && ready && !loading && !request_in_pack) begin
+                pmem_ack<=1; pmem_data<=0; memory_error<=1;
+            end else
+`endif
             if (hitA) begin
                 pmem_ack  <= 1'b1;
                 pmem_data <= bufA[offA[2:0]];
                 if (offA[2:0] >= 3'd4 && !pf_run && !pf_go && !loading
-                    && (!vB || baseB != baseA + 29'd8)) begin
+                    && (!vB || baseB != baseA + 29'd8)
+`ifdef CPSPLUS_EXTENT
+                    && (!extent_valid || nextA_in_pack)
+`endif
+                   ) begin
                     pf_go   <= 1'b1;                 // prefetch ahead into B
                     pf_addr <= baseA + 29'd8;
                     pf_dst  <= 1'b1;
@@ -590,7 +762,11 @@ always @(posedge clk) begin
                 pmem_ack  <= 1'b1;
                 pmem_data <= bufB[offB[2:0]];
                 if (offB[2:0] >= 3'd4 && !pf_run && !pf_go && !loading
-                    && (!vA || baseA != baseB + 29'd8)) begin
+                    && (!vA || baseA != baseB + 29'd8)
+`ifdef CPSPLUS_EXTENT
+                    && (!extent_valid || nextB_in_pack)
+`endif
+                   ) begin
                     pf_go   <= 1'b1;                 // prefetch ahead into A
                     pf_addr <= baseB + 29'd8;
                     pf_dst  <= 1'b0;

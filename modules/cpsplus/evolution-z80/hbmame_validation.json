@@ -1,0 +1,58 @@
+{
+  "emulator": {
+    "binary_sha256": "960d2bd0131653026c49a9c9ab0af4a81d29c999e46fa83a348407d49b2fb187",
+    "build_inputs": {
+      "cpsplus/evolution/capacity/hbmame/cps2-hooks.patch": "f8d1556da20d5e2e212a2b50561966b646fee5ca5eb62be3be6252dcd35879ec",
+      "cpsplus/evolution/capacity/hbmame/cps2plus.cpp": "1ba48d88019c869432dc48d2ed51b22bb1497bf7d37fa7ce119e5295276f2245",
+      "cpsplus/evolution/capacity/hbmame/cps2plus.h": "fd8842d6ae2e704374f0c214719aa45ad66cf38f2006454053bd4486c3946223",
+      "cpsplus/evolution/capacity/prepare_cps2plus.py": "9db049d318ebd8e0b24b749c662bda410c9d966b1eb83ed321bd4c8853a9cbd9",
+      "cpsplus/evolution/capacity/z80/hbmame_fixture.py": "ce566da221709f2c44be452cee68fc33eff0c878a67a102869aaa76b8bda7e3e",
+      "cpsplus/evolution/model/gen_hbmame_model.py": "5676a6854ac8dba2c08da87217600aa45cd1a758ae8437c3deb42dba3796117d"
+    },
+    "sources": {
+      "scripts/target/hbmame/cps2plus.lua": "ac56055241a82b6848ee52137fc1174ebc1923c65e0d7c4bc95ac8f1f0a42b06",
+      "src/hbmame/cps2plus.lst": "fea86de94d0df517f2e23ec2ae19715c8e44ffa899a3714497473ee8598d6fe8",
+      "src/hbmame/drivers/cps2.cpp": "d3d878f38a7ddb9fc01f68cb7bf221f6b82f7ce5b3e101eeef1a7ffc5cbecbbd",
+      "src/hbmame/drivers/cps2plus.cpp": "9541cdd8e336fcc9cbf7b2479b0c04b74bcc6bcc0dfcdc6d7e711402a7fb6a91",
+      "src/hbmame/drivers/cps2plus_test.cpp": "5bdef73f75cfa36b5caec0550b910442d874c61b337a7749d2b0e8317fb271ad",
+      "src/hbmame/includes/cps2.h": "f12776d9d4a622815d9b4b852d87b6211fed06ccf6a52293a6c144644430bcc0",
+      "src/hbmame/includes/cps2plus.h": "fd8842d6ae2e704374f0c214719aa45ad66cf38f2006454053bd4486c3946223",
+      "src/hbmame/video/cps2.cpp": "65a090b3ad0b0b47f0c40b3df15874713c658215f488586a94e9b9dc72b79df2",
+      "src/hbmame/video/cps2plus_layout.cpp": "ff3b550e3cb1b068eb8547495eed8b2d6e0b74f4adb2ef75b4df3f185463a230"
+    }
+  },
+  "fixture_sha256": "66851f6a111ffdbab415f4d5ccbb324c48a7a532016d5b2c02d7040d4260a4db",
+  "hardware_validated": false,
+  "observations": {
+    "z80plus": [
+      "installed time=0001.000,000,000 paused=false frame=59 pc=2e5",
+      "PASS pass=1 expanded=true 32 selections, two edges, status",
+      "PASS pass=2 expanded=true 32 selections, two edges, status",
+      "PASS complete reset"
+    ],
+    "z80plusd": [
+      "installed time=0001.000,000,000 paused=false frame=59 pc=2e5",
+      "PASS pass=1 expanded=true 32 selections, two edges, status",
+      "PASS pass=2 expanded=true 32 selections, two edges, status",
+      "PASS complete reset"
+    ],
+    "z80stock": [
+      "installed time=0001.000,000,000 paused=false frame=59 pc=2e5",
+      "PASS pass=1 expanded=false 32 selections, two edges, status",
+      "PASS pass=2 expanded=false 32 selections, two edges, status",
+      "PASS complete reset"
+    ],
+    "z80stockd": [
+      "installed time=0001.000,000,000 paused=false frame=59 pc=2e5",
+      "PASS pass=1 expanded=false 32 selections, two edges, status",
+      "PASS pass=2 expanded=false 32 selections, two edges, status",
+      "PASS complete reset"
+    ]
+  },
+  "recipes": {
+    "cpsplus/evolution/capacity/z80/hbmame_fixture.py": "ce566da221709f2c44be452cee68fc33eff0c878a67a102869aaa76b8bda7e3e",
+    "cpsplus/evolution/capacity/z80/hbmame_probe.lua": "cb8b596c83ab67b52f156fac10c607ae7dbeb176b994b0299c7e1dccb5aa4076",
+    "cpsplus/evolution/capacity/z80/run_hbmame_gate.py": "51ea4fec6a2c00b0db4cbed67ebf3ab68184bd76d7320264ffb0d0668f2673a2"
+  },
+  "status": "pass"
+}

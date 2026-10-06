@@ -38,13 +38,28 @@ module jtcps15_sound(
     output            main_waitn,
 
     // ROM
+`ifdef CPS2_Z80_512
+    input             cps2_z80_ext,
+`endif
     output reg [18:0] rom_addr, // 512 kByte
     output reg        rom_cs,
     input      [ 7:0] rom_data,
     input             rom_ok,
 
     // QSound sample ROM
+`ifdef CPS2_QSND24
+    // Flat 24-bit sample address: the DSP's bank byte is its external address
+    // bits 7:0 (the Z80 driver sends 0x8000|bank), so banks 0x80..0xff reach
+    // the upper 8 MiB. jtcps1_sdram clears bit 23 while the image does not
+    // declare the flat library, which is the stock 8 MiB mirror.
+`ifdef CPS2_QSND32
+    output reg [24:0] qsnd_addr, // up to 32 MiB; runtime mask in SDRAM path
+`else
+    output reg [23:0] qsnd_addr, // max 16 MB.
+`endif
+`else
     output reg [22:0] qsnd_addr, // max 8 MB.
+`endif
     output            qsnd_cs,
     input      [ 7:0] qsnd_data,
     input             qsnd_ok,
@@ -67,7 +82,12 @@ localparam LATCH=`ifdef KABUKI_LATCH 1 `else 0 `endif ;
 wire        cpu_cen, cen_extra;
 wire [ 7:0] dec_dout, ram_dout, cpu_dout, bus_din;
 wire [15:0] A, bus_A;
+`ifdef CPS2_Z80_512
+reg  [ 4:0] bank;
+wire [4:0] selected_bank = {bus_din[4] & cps2_z80_ext,bus_din[3:0]};
+`else
 reg  [ 3:0] bank;
+`endif
 reg  [ 7:0] cpu_din;
 reg         rstn;
 reg         ram_cs, bank_cs, qsnd_wr, qsnd_rd;
@@ -151,7 +171,11 @@ end
 
 always @(*) begin
     rom_cs  = !bus_mreqn && (!bus_A[15] || bus_A[15:14]==2'b10);
+`ifdef CPS2_Z80_512
+    rom_addr = bus_A[15] ? ({ bank, bus_A[13:0] } + 19'h8000) : { 4'b0, bus_A[14:0] };
+`else
     rom_addr = (bus_A[15] ? ({ 1'b0, bank, bus_A[13:0] } + 19'h8000) : { 4'b0, bus_A[14:0] });
+`endif
     ram_cs   = !bus_mreqn && (bus_A[15:12] == 4'hc || bus_A[15:12]==4'hf);
     qsnd_wr  = !bus_mreqn && !bus_wrn && (bus_A[15:12] == 4'hd && bus_A[2:0]<=3'd2);
     bank_cs  = !bus_mreqn && !bus_wrn && (bus_A[15:12] == 4'hd && bus_A[2:0]==3'd3);
@@ -163,12 +187,22 @@ reg [23:0] cpu2dsp_s;
 
 always @(posedge clk48, posedge rst) begin
     if ( rst ) begin
+`ifdef CPS2_Z80_512
+        bank    <= 5'd0;
+`else
         bank    <= 4'd0;
+`endif
         cpu2dsp <= 24'd0;
         dsp_rst <= 1;
     end else begin
         if( bank_cs ) begin
+`ifdef CPS2_Z80_512
+            // The last two selections are unpopulated, decoded to bank 0.
+            // Legacy images ignore bit 4 exactly as before.
+            bank    <= cps2_z80_ext && selected_bank>=30 ? 5'd0 : selected_bank;
+`else
             bank    <= bus_din[3:0];
+`endif
             dsp_rst <= ~bus_din[7];
         end
         if( qsnd_wr ) begin
@@ -185,7 +219,11 @@ end
 always @(*) begin
     cpu_din =  rom_cs ? ( A[15] ? rom_data : dec_dout ) : (
                ram_cs ? ram_dout : (
+`ifdef CPS2_Z80_512
+              qsnd_rd ? { dsp_rdy_n, 2'b11, bank[4] | ~cps2_z80_ext, bank[3:0] } : 8'hff
+`else
               qsnd_rd ? { dsp_rdy_n, 3'b111, bank } : 8'hff
+`endif
               ));
 end
 
@@ -321,7 +359,15 @@ reg        left_done, right_done;
 always @(posedge clk96, posedge rst) begin
     if ( rst ) begin
         audio_ws   <= 0;
+`ifdef CPS2_QSND24
+`ifdef CPS2_QSND32
+        qsnd_addr  <= 25'd0;
+`else
+        qsnd_addr  <= 24'd0;
+`endif
+`else
         qsnd_addr  <= 23'd0;
+`endif
         base_sample<= 0;
         dsp_dsel96 <= 0;
         pre_l      <= 16'd0;
@@ -363,7 +409,15 @@ always @(posedge clk96, posedge rst) begin
             qsnd_addr[15:0] <= dsp_pbus_out;
         end
         if( dsp_ab[15] && dsp_cen_cko ) begin
+`ifdef CPS2_QSND24
+`ifdef CPS2_QSND32
+            qsnd_addr[24:16] <= dsp_ab[8:0]; // native DSP bank bus
+`else
+            qsnd_addr[23:16] <= dsp_ab[7:0]; // bank byte, all eight bits
+`endif
+`else
             qsnd_addr[22:16] <= dsp_ab[6:0];
+`endif
         end
     end
 end
@@ -428,7 +482,15 @@ initial begin
     main_din   = 8'hff;
     rom_addr   = 19'd0;
     rom_cs     = 1'b0;
+`ifdef CPS2_QSND24
+`ifdef CPS2_QSND32
+    qsnd_addr  = 25'd0;
+`else
+    qsnd_addr  = 24'd0;
+`endif
+`else
     qsnd_addr  = 23'd0;
+`endif
 end
 `endif
 

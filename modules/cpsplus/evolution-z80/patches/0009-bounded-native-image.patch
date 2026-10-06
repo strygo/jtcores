@@ -1,0 +1,474 @@
+diff --git a/cores/cps1/hdl/jtcps1_prom_we.v b/cores/cps1/hdl/jtcps1_prom_we.v
+--- a/cores/cps1/hdl/jtcps1_prom_we.v
++++ b/cores/cps1/hdl/jtcps1_prom_we.v
+@@ -67,7 +67,59 @@
+ `endif
+ );
+ 
++`ifdef CPS2_NATIVE128
++`include "jtframe_cps2_native.vh"
++reg native_mode=0, native_bad=0, native_header_ok=0, native_finish=0;
++reg native_last_rom=0;
++reg [26:0] native_next=0;
++wire native_write = !native_mode || (native_header_ok && !native_bad &&
++                    ioctl_addr>=128 && ioctl_addr<NATIVE_END && ioctl_addr==native_next);
++wire native_load = native_mode && native_header_ok && !native_bad;
++wire load_prog_ext = native_load || cps2_prog_ext;
++wire load_obj_ext  = native_load || cps2_obj_ext;
++wire load_qsnd_ext = native_load || cps2_qsnd_ext;
++wire load_gfx_full = native_load || cps2_gfx_full;
++assign dwnld_busy = ioctl_rom || (native_mode && (native_bad || native_finish));
++// Check all header fields again at the native boundary, then require every
++// payload byte in order. A user reset is deliberately not an image reload.
++always @(posedge clk) begin
++    native_last_rom <= ioctl_rom;
++    if(ioctl_rom && !native_last_rom) begin
++        native_mode <= 0;
++        native_bad <= 0;
++        native_header_ok <= 0;
++        native_finish <= 0;
++        native_next <= 0;
++    end
++    if(ioctl_wr && ioctl_rom && !ioctl_ram) begin
++        if(ioctl_addr==0) begin
++            native_mode <= 0;
++            native_next <= 1;
++            native_bad <= ioctl_dout!=native_expected(0);
++            native_header_ok <= 0;
++            native_finish <= 0;
++        end else begin
++            native_next <= native_next+1'b1;
++            if(ioctl_addr!=native_next ||
++               (ioctl_addr<128 && native_fixed(ioctl_addr[6:0]) &&
++                ioctl_dout!=native_expected(ioctl_addr[6:0])) ||
++               (native_mode && ioctl_addr>=NATIVE_END)) native_bad <= 1;
++            if(ioctl_addr==14 && ext_header_step==2)
++                native_mode <= ioctl_dout!=1 && ioctl_dout!=8'h7f;
++            if(ioctl_addr==127)
++                native_header_ok <= !native_bad && ioctl_addr==native_next &&
++                                    ioctl_dout==native_expected(127);
++        end
++    end
++    if(!ioctl_rom && native_last_rom && native_mode) begin
++        native_finish <= 1;
++        if(native_next!=NATIVE_END || !native_header_ok) native_bad <= 1;
++    end
++    if(native_finish && !ioctl_rom && !native_bad && (!prog_we || prog_rdy)) native_finish <= 0;
++end
++`else
+ assign dwnld_busy = ioctl_rom;
++`endif
+ 
+ // The start position header has 16 bytes, from which 6 are actually used and
+ // 10 are reserved
+@@ -106,7 +158,11 @@
+ // download address is therefore 27 bits wide and every region compare uses
+ // all of it, so an address above 64 MiB never aliases a low region. Without
+ // the capability the regions are the stock ones (firmware open-ended on top).
++`ifdef CPS2_NATIVE128
++wire [26:0] bulk_addr = ioctl_addr - (native_mode ? 27'd128 : 27'd64);
++`else
+ wire [26:0] bulk_addr = ioctl_addr - FULL_HEADER; // the header is excluded
++`endif
+ wire [26:0] cpu_addr  = bulk_addr ; // the header is excluded
+ wire [26:0] snd_addr  = bulk_addr - { snd_start[15:0], 10'd0 };
+ wire [26:0] pcm_addr  = bulk_addr - { pcm_start[15:0], 10'd0 };
+@@ -120,10 +176,17 @@
+ wire is_cps2   = ioctl_addr >= CPS2_KEYS && ioctl_addr < CPS2_END;
+ wire is_cpu    = bulk_kib < {1'b0, snd_start};
+ wire is_snd    = bulk_kib < {1'b0, pcm_start}  && bulk_kib >= {1'b0, snd_start};
++`ifdef CPS2_NATIVE128
++wire is_oki    = bulk_kib < {1'b0, load_qsnd_ext ? qsnd_start : gfx_start} && bulk_kib >= {1'b0, pcm_start};
++wire is_gfx    = bulk_kib >= {1'b0, gfx_start} && (load_qsnd_ext || bulk_kib < {1'b0, qsnd_start});
++wire is_qsnd   = ioctl_addr >= (native_mode ? 27'd128 : 27'd64) && bulk_kib >= {1'b0, qsnd_start} &&
++                 (!load_qsnd_ext || bulk_kib < {1'b0, gfx_start});
++`else
+ wire is_oki    = bulk_kib < {1'b0, cps2_qsnd_ext ? qsnd_start : gfx_start} && bulk_kib >= {1'b0, pcm_start};
+ wire is_gfx    = bulk_kib >= {1'b0, gfx_start} && (cps2_qsnd_ext || bulk_kib < {1'b0, qsnd_start});
+ wire is_qsnd   = ioctl_addr >= FULL_HEADER && bulk_kib >= {1'b0, qsnd_start} && // Q-Sound ROM
+                  (!cps2_qsnd_ext || bulk_kib < {1'b0, gfx_start});
++`endif
+ // The flat order: exactly 16 MiB of samples, then exactly 8 KiB of DSP
+ // firmware on an 8 KiB boundary (its bytes address the DSP ROM with
+ // bulk_addr[12:0]), then graphics.
+@@ -177,6 +240,14 @@
+ `endif
+ `endif
+ always @(posedge clk) begin
++`ifdef CPS2_NATIVE128
++    if(ioctl_rom && !native_last_rom) begin
++        cps2_prog_ext <= 0;
++        cps2_obj_ext <= 0;
++        cps2_qsnd_ext <= 0;
++        cps2_gfx_full <= 0;
++    end
++`endif
+     if (ioctl_wr && ioctl_rom && !ioctl_ram) begin
+         if (ioctl_addr==0) begin
+             cps2_prog_ext <= 0;
+@@ -242,9 +313,22 @@
+             ext_header_step <= 0;
+         end
+     end
++`ifdef CPS2_NATIVE128
++    if(native_finish && !ioctl_rom && !native_bad && (!prog_we || prog_rdy)) begin
++        cps2_prog_ext <= 1;
++        cps2_obj_ext <= 1;
++        cps2_qsnd_ext <= 1;
++        cps2_gfx_full <= 1;
++    end
++`endif
+ end
++`ifdef CPS2_NATIVE128
++wire [22:0] cpu_phys = load_prog_ext ? {cpu_addr[22], 1'b0, cpu_addr[21:1]} : cpu_addr[23:1];
++wire cpu_allowed = !is_cpu || (load_prog_ext ? bulk_addr<27'h0800000 : bulk_addr<27'h0400000);
++`else
+ wire [22:0] cpu_phys = cps2_prog_ext ? {cpu_addr[22], 1'b0, cpu_addr[21:1]} : cpu_addr[23:1];
+ wire cpu_allowed = !is_cpu || (cps2_prog_ext ? bulk_addr<26'h0800000 : bulk_addr<26'h0400000);
++`endif
+ `else
+ wire [22:0] cpu_phys = cpu_addr[23:1];
+ wire cpu_allowed = 1'b1;
+@@ -258,12 +342,21 @@
+ // 40 MiB region still fits the stock header; without the capability the
+ // bytes above 32 MiB are dropped instead of overwriting the library.
+ wire        gfx_slice_ok  = (qsnd_start - gfx_start) == 16'ha000;
++`ifdef CPS2_NATIVE128
++wire        gfx_slice     = load_obj_ext && gfx_addr[25];
++`else
+ wire        gfx_slice     = cps2_obj_ext && gfx_addr[25];
++`endif
+ wire [23:0] gfx_phys      = {gfx_slice, gfx_addr[24], gfx_addr[22:1]};
+ `ifdef CPS2_QSND24
+ // In the flat order graphics are the open-ended top region: bytes past the
+ // library (32 MiB, 40 MiB with the slice) are dropped, never wrapped.
+-`ifdef CPS2_GFX64
++`ifdef CPS2_NATIVE128
++wire        gfx_allowed = !is_gfx || (load_qsnd_ext ?
++                            gfx_off < (load_gfx_full ? 27'h4000000 :
++                                      (load_obj_ext ? 27'h2800000 : 27'h2000000)) :
++                            !gfx_addr[25] || load_obj_ext);
++`elsif CPS2_GFX64
+ wire        gfx_allowed   = !is_gfx || (cps2_qsnd_ext ?
+                                 gfx_off < (cps2_gfx_full ? 27'h4000000 :
+                                            (cps2_obj_ext ? 27'h2800000 : 27'h2000000)) :
+@@ -347,10 +440,21 @@
+                 prom_we   <= 1'b0;
+                 if( ioctl_addr[5:0] == CFG_BYTE )
+                     {decrypt, pang3_bit} <= ioctl_dout[7:6];
++            `ifdef CPS2_NATIVE128
++            end else if(native_mode && ioctl_addr<128) begin
++                cfg_we <= 0;
++                prog_we <= 0;
++                prom_we <= 0;
++`endif
+             end else if(ioctl_addr>=FULL_HEADER) begin
+                 cfg_we    <= 1'b0;
++                `ifdef CPS2_NATIVE128
++                prog_we   <= ~is_qsnd && cpu_allowed && gfx_allowed && native_write;
++                prom_we   <=  is_qsnd && native_write;
++`else
+                 prog_we   <= ~is_qsnd && cpu_allowed && gfx_allowed;
+                 prom_we   <=  is_qsnd;
++`endif
+             end else if( ioctl_addr[5:0] == JOY_BYTE ) begin
+                 joymode <= ioctl_dout[1:0]; // only CPS2
+             end
+@@ -358,7 +462,11 @@
+     end
+     else begin
+         cps2_key_we <= 0;
++        `ifdef CPS2_NATIVE128
++        if((!native_mode && !ioctl_rom) || prog_rdy) prog_we <= 0;
++`else
+         if(!ioctl_rom || prog_rdy) prog_we  <= 1'b0;
++`endif
+         if( !ioctl_rom ) begin
+             decrypt    <= 0;
+             prom_we    <= 0;
+diff --git a/modules/jtframe/target/mister/hdl/jtframe_mister_dwnld.v b/modules/jtframe/target/mister/hdl/jtframe_mister_dwnld.v
+--- a/modules/jtframe/target/mister/hdl/jtframe_mister_dwnld.v
++++ b/modules/jtframe/target/mister/hdl/jtframe_mister_dwnld.v
+@@ -46,6 +46,9 @@
+     input             hps_upload,   // signal indicating an active upload
+     input      [ 7:0] hps_index,    // menu index used to upload the file
+     input             hps_wr,
++    `ifdef CPS2_NATIVE128
++    input             hps_overflow,
++`endif
+     input      [26:0] hps_addr,     // in WIDE mode address will be incremented by 2
+     input      [ 7:0] hps_dout,
+     output            hps_wait,
+@@ -182,6 +185,58 @@
+                      ? {1'b0, pack_ptr, 10'd0} - {17'd0, pad_eff} : ddr_len;
+ `endif
+ 
++`ifdef CPS2_NATIVE128
++`include "jtframe_cps2_native.vh"
++reg native_mode=0, native_bad=0, native_error=0, native_preflight=0;
++reg native_extent_bad=0;
++wire new_rom_download = hps_download && !last_dwn && is_rom;
++reg [3:0] image_error=0; // 1 header, 2 extent/overflow; retained until reload
++integer header_lane;
++reg header_word_bad;
++always @(*) begin
++    header_word_bad=0;
++    for(header_lane=0;header_lane<8;header_lane=header_lane+1)
++        if(native_fixed({ddram_cnt[3:0],3'b000}+header_lane[6:0]) &&
++           ddram_dout[header_lane*8+:8] != native_expected({ddram_cnt[3:0],3'b000}+header_lane[6:0]))
++            header_word_bad=1;
++end
++always @(posedge clk, posedge rst) begin
++    if(rst) begin
++        native_mode<=0;
++        native_bad<=0;
++        native_error<=0;
++        native_preflight<=0;
++        native_extent_bad<=0;
++        image_error<=0;
++    end else if(new_rom_download) begin
++        native_mode<=0;
++        native_bad<=0;
++        native_error<=0;
++        native_preflight<=0;
++        native_extent_bad<=0;
++        image_error<=0;
++    end else begin
++        if(!hps_download && last_dwn && ioctl_rom && !wr_latch) begin
++            native_preflight<=1;
++            native_extent_bad<=hps_overflow || hps_addr!=NATIVE_END;
++        end
++        if(ddr_dwn && ddram_wait && !ddram_busy && ddram_dout_ready && ddram_page==0) begin
++            if(ddram_cnt<16 && header_word_bad) native_bad<=1;
++            // Either identity recognizes this profile; corrupting one cannot
++            // downgrade it into a legacy payload. Legacy versions 1/7f stay exact.
++            if(ddram_cnt==1 && ddram_dout[47:32]==16'h3243 &&
++               ddram_dout[55:48]!=1 && ddram_dout[55:48]!=8'h7f) native_mode<=1;
++            if(ddram_cnt==8 && ddram_dout[31:0]==32'h58453243) native_mode<=1;
++            if(cnt_over) begin
++                native_preflight<=0;
++                native_error<=native_mode && (native_bad || native_extent_bad);
++                if(native_mode && (native_bad || native_extent_bad))
++                    image_error<=native_bad ? 4'd1 : 4'd2;
++            end
++        end
++    end
++end
++`endif
+ assign hps_wait = ddr_dwn;
+ assign is_rom   = hps_index[5:0]==IDX_ROM;
+ assign is_cart  = hps_index[5:0]==IDX_CART;
+@@ -190,7 +245,11 @@
+ // download signals mux — registered to break long combinational path
+ // from ddr_dwn through jtframe_dwnld (Add0 → LessThan3 → Selector9 → Add1 → prog_addr)
+ always @(posedge clk) begin
++    `ifdef CPS2_NATIVE128
++    ioctl_wr   <= ddr_dwn ? (dump_we && !native_preflight && !native_error) :
++`else
+     ioctl_wr   <= ddr_dwn ? dump_we :
++`endif
+                              hps_wr && (game_rom || is_nvram);
+     ioctl_dout <= ddr_dwn ? dump_ser[7:0] : hps_dout;
+     ioctl_addr <= ddr_dwn ? dump_cnt :
+@@ -234,7 +293,17 @@
+                 ddr_dwn  <= 1;
+             end
+         end
++`ifdef CPS2_NATIVE128
++        if(!native_preflight && !native_error &&
++           ((!hps_download && last_dwnbusy && !dwnld_busy) ||
++            (ddr_dwn && dump_cnt >= (native_mode ? NATIVE_END :
+ `ifdef CPSPLUS
++                                     dump_end
++`else
++                                     ddr_len
++`endif
++             )))) begin
++`elsif CPSPLUS
+         if( !hps_download && last_dwnbusy && !dwnld_busy || (ddr_dwn && dump_cnt >= dump_end)) begin
+ `else
+         if( !hps_download && last_dwnbusy && !dwnld_busy || (ddr_dwn && dump_cnt >= ddr_len)) begin
+@@ -242,6 +311,12 @@
+             ioctl_rom  <= 0;
+             ddr_dwn    <= 0;
+         end
++`ifdef CPS2_NATIVE128
++        if(native_error && !hps_download) begin
++            ioctl_rom<=1; // keep the game in reset; do not hold the HPS interface
++            ddr_dwn<=0;
++        end
++`endif
+     end
+ end
+ 
+@@ -260,7 +335,11 @@
+ reg ddram_wait;
+ 
+ always @(posedge clk, posedge rst) begin
++    `ifdef CPS2_NATIVE128
++    if(rst || new_rom_download) begin
++`else
+     if( rst ) begin
++`endif
+         ddram_cnt  <= 0;
+         ddram_page <= 0;
+         ddram_wait <= 0;
+@@ -314,7 +393,11 @@
+ 
+ // Send to core
+ always @(posedge clk, posedge rst) begin
++    `ifdef CPS2_NATIVE128
++    if(rst || new_rom_download) begin
++`else
+     if( rst ) begin
++`endif
+         tx_done  <= 1;
+         dump_cnt <= 27'd0;
+         dump_we  <= 0;
+@@ -331,11 +414,23 @@
+             if( st==1 && dump_cnt[2:0]==3'd0 ) begin
+                 dump_ser <= dump_data;
+             end
++            `ifdef CPS2_NATIVE128
++            dump_we <= st==2'd2 && !native_error &&
++                       (!native_mode || dump_cnt<NATIVE_END);
++`else
+             dump_we <= st==2'd2;
++`endif
+             timeout <= st==2'd2 ? 5'd0 : (timeout+1'd1);
+             case( st )
+                 default: st <= st+1'd1;
++                `ifdef CPS2_NATIVE128
++                // Allow the registered IOCTL/native-write pipeline to settle.
++                // Enhanced payloads never advance on the legacy timeout escape.
++                3: if(native_mode ? (timeout>=7 && (!prog_we || prog_rdy)) :
++                                    (prog_rdy || (&timeout))) begin
++`else
+                 3: if( prog_rdy || (&timeout) ) begin
++`endif
+                     dump_ser <= dump_ser>>8;
+                     dump_cnt <= dump_cnt+1'd1;
+                     st <= &dump_cnt[2:0] ? 2'd0 : 2'd1;
+diff --git a/modules/jtframe/target/mister/hdl/jtframe_mister.sv b/modules/jtframe/target/mister/hdl/jtframe_mister.sv
+--- a/modules/jtframe/target/mister/hdl/jtframe_mister.sv
++++ b/modules/jtframe/target/mister/hdl/jtframe_mister.sv
+@@ -272,6 +272,9 @@
+ wire        hps_download, hps_upload, hps_wr, hps_wait;
+ wire [15:0] hps_index;
+ wire [26:0] hps_addr;
++`ifdef CPS2_NATIVE128
++wire hps_overflow;
++`endif
+ wire [ 7:0] hps_dout;
+ 
+ // Screen rotation
+@@ -439,6 +442,9 @@
+     .hps_index      ( hps_index[7:0] ),
+     .hps_wr         ( hps_wr         ),
+     .hps_addr       ( hps_addr       ),
++`ifdef CPS2_NATIVE128
++    .hps_overflow   ( hps_overflow   ),
++`endif
+     .hps_dout       ( hps_dout       ),
+     .hps_wait       ( hps_wait       ),
+ 
+@@ -535,6 +541,9 @@
+     .ioctl_download  ( hps_download   ),
+     .ioctl_wr        ( hps_wr         ),
+     .ioctl_addr      ( hps_addr       ),
++`ifdef CPS2_NATIVE128
++    .ioctl_overflow  ( hps_overflow   ),
++`endif
+     .ioctl_dout      ( hps_dout       ),
+     .ioctl_din       ( hps_din        ),
+     .ioctl_index     ( hps_index      ),
+diff --git a/modules/jtframe/target/mister/hdl/sys/hps_io.sv b/modules/jtframe/target/mister/hdl/sys/hps_io.sv
+--- a/modules/jtframe/target/mister/hdl/sys/hps_io.sv
++++ b/modules/jtframe/target/mister/hdl/sys/hps_io.sv
+@@ -143,6 +143,9 @@
+ 	output reg        ioctl_download = 0, // signal indicating an active download
+ 	output reg [15:0] ioctl_index,        // menu index used to upload the file
+ 	output reg        ioctl_wr,
++	`ifdef CPS2_NATIVE128
++    output reg        ioctl_overflow = 0,
++`endif
+ 	output reg [26:0] ioctl_addr,         // in WIDE mode address will be incremented by 2
+ 	output reg [DW:0] ioctl_dout,
+ 	output reg        ioctl_upload = 0,   // signal indicating an active upload
+@@ -670,6 +673,9 @@
+ 									end
+ 									else if(io_din[7:0]) begin
+ 										addr <= 0;
++`ifdef CPS2_NATIVE128
++                                        ioctl_overflow <= 0;
++`endif
+ 										ioctl_download <= 1;
+ 									end
+ 									else begin
+@@ -685,6 +691,9 @@
+ 
+ 								2: begin
+ 										ioctl_addr[26:16] <= io_din[10:0];
++`ifdef CPS2_NATIVE128
++                                        ioctl_overflow <= ioctl_overflow || |io_din[15:11];
++`endif
+ 										addr[26:16] <= io_din[10:0];
+ 									end
+ 							endcase
+@@ -696,6 +705,9 @@
+ 							ioctl_dout <= io_din[DW:0];
+ 							wr   <= 1;
+ 							addr <= addr + (WIDE ? 2'd2 : 2'd1);
++`ifdef CPS2_NATIVE128
++                            if(addr >= (WIDE ? 27'h7fffffe : 27'h7ffffff)) ioctl_overflow <= 1;
++`endif
+ 						end
+ 						else begin
+ 							ioctl_addr <= ioctl_addr + (WIDE ? 2'd2 : 2'd1);
+diff --git a/modules/jtframe/hdl/inc/jtframe_cps2_native.vh b/modules/jtframe/hdl/inc/jtframe_cps2_native.vh
+new file mode 100644
+--- /dev/null
++++ b/modules/jtframe/hdl/inc/jtframe_cps2_native.vh
+@@ -0,0 +1,42 @@
++// Native-only CPS2 capacity profile. Included inside both loader modules.
++// Generated metadata is checked against the executable image_format.py gate.
++`ifdef CPS2_NATIVE128
++`ifndef CPS2_GFX64
++    `CPS2_NATIVE128_requires_CPS2_GFX64
++`endif
++localparam [26:0] NATIVE_END = 27'd92545152;
++function [7:0] native_expected;
++    input [6:0] address;
++    reg [31:0] word_value;
++    begin
++        case(address[6:2])
++            5'd0: word_value = 32'h21002000;
++            5'd1: word_value = 32'h61006108;
++            5'd2: word_value = 32'h00000000;
++            5'd3: word_value = 32'h07023243;
++            5'd16: word_value = 32'h58453243;
++            5'd17: word_value = 32'h00400002;
++            5'd18: word_value = 32'h00000080;
++            5'd19: word_value = 32'h00800000;
++            5'd20: word_value = 32'h00800080;
++            5'd21: word_value = 32'h00040000;
++            5'd22: word_value = 32'h00840080;
++            5'd23: word_value = 32'h01000000;
++            5'd24: word_value = 32'h01840080;
++            5'd25: word_value = 32'h00002000;
++            5'd26: word_value = 32'h01842080;
++            5'd27: word_value = 32'h04000000;
++            5'd28: word_value = 32'h05842080;
++            5'd29: word_value = 32'h00000000;
++            5'd30: word_value = 32'h00000000;
++            5'd31: word_value = 32'h00000000;
++            default: word_value = 0; // configuration/keys are unconstrained
++        endcase
++        native_expected = word_value[{address[1:0],3'b000}+:8];
++    end
++endfunction
++function native_fixed;
++    input [6:0] address;
++    begin native_fixed = address < 16 || address >= 64; end
++endfunction
++`endif

@@ -122,6 +122,15 @@ module jtframe_mister #(parameter
     output          DDRAM_WE,
 `ifdef CPSPLUS
     // CPS+ arranged-audio DDR client (game side)
+`ifdef CPS2_UNIFIED
+    output          cpsp_game_hold,
+    output          cpsp_music_reset,
+    output          cpsp_music_boot,
+    output          cpsp_music_indirect,
+    output  [31:0]  cpsp_music_extent,
+    input           cpsp_music_ready,
+    input   [3:0]   cpsp_music_status,
+`endif
     input           cpsp_rd,
     input   [ 7:0]  cpsp_burstcnt,
     input   [28:0]  cpsp_addr,
@@ -272,6 +281,14 @@ wire [COLORW-1:0] hsize_r, hsize_g, hsize_b;
 wire        hps_download, hps_upload, hps_wr, hps_wait;
 wire [15:0] hps_index;
 wire [26:0] hps_addr;
+`ifdef CPS2_UNIFIED
+wire [31:0] hps_length;
+wire load_busy, load_native, pack_wait, cpsp_idle;
+wire [3:0] load_error, cpsp_load_status;
+`endif
+`ifdef CPS2_NATIVE128
+wire hps_overflow;
+`endif
 wire [ 7:0] hps_dout;
 
 // Screen rotation
@@ -439,8 +456,16 @@ jtframe_mister_dwnld u_dwnld(
     .hps_index      ( hps_index[7:0] ),
     .hps_wr         ( hps_wr         ),
     .hps_addr       ( hps_addr       ),
+`ifdef CPS2_NATIVE128
+    .hps_overflow   ( hps_overflow   ),
+`endif
     .hps_dout       ( hps_dout       ),
     .hps_wait       ( hps_wait       ),
+`ifdef CPS2_UNIFIED
+    .load_busy      ( load_busy      ),
+    .load_native    ( load_native    ),
+    .load_error     ( load_error     ),
+`endif
 
     .ioctl_wr       ( ioctl_wr       ),
     .ioctl_addr     ( ioctl_addr     ),
@@ -466,6 +491,19 @@ jtframe_mister_dwnld u_dwnld(
     .ddram_rd       ( ddrld_rd         )
 );
 
+`ifdef CPS2_UNIFIED
+jtframe_cps2_load u_pack_load(
+    .clk(clk_rom), .rst(rst), .game_rst(game_rst),
+    .hps_download(hps_download), .hps_wr(hps_wr), .hps_index(hps_index[7:0]),
+    .hps_addr(hps_addr), .hps_dout(hps_dout), .hps_length(hps_length),
+    .native_loading(ioctl_rom), .native_busy(dwnld_busy), .copy_busy(load_busy),
+    .native_image(load_native), .native_error(load_error),
+    .music_idle(cpsp_idle), .music_ready(cpsp_music_ready), .music_status(cpsp_music_status),
+    .hps_wait(pack_wait), .game_hold(cpsp_game_hold), .music_reset(cpsp_music_reset),
+    .music_boot(cpsp_music_boot), .music_indirect(cpsp_music_indirect),
+    .music_extent(cpsp_music_extent), .load_status(cpsp_load_status)
+);
+`endif
 wire [7:0] hps_din;
 wire [15:0] joyusb_1, joyusb_2;
 
@@ -535,10 +573,20 @@ hps_io #(
     .ioctl_download  ( hps_download   ),
     .ioctl_wr        ( hps_wr         ),
     .ioctl_addr      ( hps_addr       ),
+`ifdef CPS2_UNIFIED
+    .ioctl_length    ( hps_length     ),
+`endif
+`ifdef CPS2_NATIVE128
+    .ioctl_overflow  ( hps_overflow   ),
+`endif
     .ioctl_dout      ( hps_dout       ),
     .ioctl_din       ( hps_din        ),
     .ioctl_index     ( hps_index      ),
-    .ioctl_wait      ( hps_wait     | sd_wait  ),
+    .ioctl_wait      ( hps_wait | sd_wait
+`ifdef CPS2_UNIFIED
+                      | pack_wait
+`endif
+                    ),
     .ioctl_upload    ( hps_upload     ),
     // NVRAM support
     .ioctl_rd        (                ), // no need
@@ -1106,6 +1154,9 @@ jtframe_mr_ddrmux u_ddrmux(
         .cpsp_rd        ( cpsp_rd         ),
         .cpsp_busy      ( cpsp_busy       ),
         .cpsp_sel       ( cpsp_sel        ),
+`ifdef CPS2_UNIFIED
+        .cpsp_idle      ( cpsp_idle       ),
+`endif
         .ddr_dout_ready ( DDRAM_DOUT_READY),
 `endif
         // Fast DDR load

@@ -1,0 +1,91 @@
+{
+  "hardware_validated": false,
+  "observations": {
+    "isolation": [
+      "stock",
+      "program",
+      "objext",
+      "prototype",
+      "native16",
+      "native32",
+      "cps1",
+      "cps15"
+    ],
+    "lint": [
+      "PASS lint: jtcps2_game elaborates with CPS2_PRG8 + CPS2_OBJEXT + CPS2_QSND24 + JTFRAME_SDRAM_XL and the MiSTer profile macros (0 errors, 0 extension-width warnings)"
+    ],
+    "loader": [
+      "PASS native preflight: 80 header byte mutations, truncation, trailing data, host overflow; zero native writes, reset retained, HPS released",
+      "PASS native full image: 92807296 exact bytes, 92798976 SDRAM writes, 8192 DSP bytes; all regions/banks/lanes, DDR stalls, final acknowledgment, digest=65fa0180",
+      "PASS native user reset: all image capabilities retained",
+      "PASS native cross-profile reload: wrong extent blocked, all old capabilities cleared",
+      "PASS native reload: valid to invalid stays reset, error rearmed on new download",
+      "PASS native legacy DDR reload: 64-byte header and 4096 CPU bytes exact; invalid to legacy recovery on same core"
+    ],
+    "metadata": [
+      "PASS Z80 metadata: four host/RTL layouts match every fixed byte"
+    ],
+    "mutation": "PASS negative control: bank-bit-mutant rejected (bank address differs)",
+    "runtime": [
+      "PASS Z80 banks: pass=0 expanded=1 all 32 selections, both window edges, ignored bits, status",
+      "PASS Z80 banks: pass=1 expanded=1 all 32 selections, both window edges, ignored bits, status",
+      "PASS Z80 banks: pass=2 expanded=0 all 32 selections, both window edges, ignored bits, status",
+      "PASS Z80 reset: upper-bank reboot and legacy game switch, 288 checked real CPU writes"
+    ]
+  },
+  "recipes": {
+    "cpsplus/evolution/capacity/image_format.py": "9ac43a69d0739fdce12218e62eb8d6f80e647fa6c1d561be0059a88184cdc76e",
+    "cpsplus/evolution/capacity/native-patches/0009-bounded-native-image.patch": "17873864fb1e25456d45783c45894e35edbfae69b2c5090d8b3482774e1e9d58",
+    "cpsplus/evolution/capacity/native-patches/0010-synchronous-download-rearm.patch": "8e3e310810d57a3f981b1f51502e01cb40a89ecba84539538719001bf770ac11",
+    "cpsplus/evolution/capacity/patches/0007-full-object-graphics.patch": "dea1e9bf59cb33bda8515749a2e4c8bbe7719534fb6986ff91eed77230c2a1b0",
+    "cpsplus/evolution/capacity/patches/0008-scroll-tile-bank.patch": "a56b6f48cc993aae2c9d8d6f5e529198f052d54a0df7a077a04b7cca9e63869e",
+    "cpsplus/evolution/capacity/run_graphics_gate.py": "051a0aeea6c11b821017fe3b917ce8ecfcdd165a7ad9cfebce07dcb7e8bc015e",
+    "cpsplus/evolution/capacity/run_native_gate.py": "c0f0f5d1bc2fc690398f4e56b8277062c1de5e281d2e8b66bfdf20091994a012",
+    "cpsplus/evolution/capacity/run_sample32_gate.py": "ff1d6c60e6d9079106a6b389744a3710ca42e352d1b65de7d3625ead2d5ea02b",
+    "cpsplus/evolution/capacity/sample32-patches/0011-native-qsound32.patch": "40a66908aa6ef172cdf1202f9f9c48c69d89542b33448d93423e3040f756c2f9",
+    "cpsplus/evolution/capacity/sample32-patches/0012-verilog-rom-word-address.patch": "5447e92cd8284b31ed8d5c24482d8d8f41411f1b1087e0da64fdb62d984ffe14",
+    "cpsplus/evolution/capacity/z80/patches/0018-z80-program-capacity.patch": "bddd50b5b7f72c52c408d7e4056fd765bc5400ea33feb5885f4fed1dad0a60ae",
+    "cpsplus/evolution/capacity/z80/prepare_core.py": "005d74699876a2e807708af7dd33acf61f85afd2a6d30b12754249fe42a4e099",
+    "cpsplus/evolution/capacity/z80/run_gate.py": "8bf81c3ab75a1e4b23bf2619d1280fc136379c48d3f3a7983d2f615fc05da8e4",
+    "cpsplus/evolution/patches/0001-program-window.patch": "4e1dacaa1c097002c1a1596f033aca9bd92a4bb44d440bcbd94dccb9adaa90b5",
+    "cpsplus/evolution/patches/0002-decrypt-range.patch": "5113187aae5dddd71b3a96c0ab06774a2e78ec7c4e6d85101e4603b63833913c",
+    "cpsplus/evolution/patches/0003-object-bank-bit.patch": "07a872f140976d505223fc2a6ee66e47bcacd22580216b3b33148f266c6c333e",
+    "cpsplus/evolution/patches/0004-sdram-xl.patch": "6c031a19ac7e243f3fd950d395db6bbb1f286f46e8d892a303ff8a6e5f3b762f",
+    "cpsplus/evolution/patches/0005-sdram-ncs-constraint.patch": "25c25cd5256c4f8c324993886d0a8e2078860b20b2b6543abf786aa69dfe39e0",
+    "cpsplus/evolution/patches/0006-qsound-flat.patch": "2c13942a3ee7d3a96ab418445b150bf8c921e556ea07fa5f7e3ac701e7c5fd32",
+    "cpsplus/evolution/prepare.py": "eab165d51dd8efbfd06328e6a9567876469cc14bc067cb497cc3f449bc1ad3ad",
+    "cpsplus/evolution/run_gate.py": "6dd7df52cf797396e10bbf079250fe3b81877a62b5e389c27839906bc45648ce",
+    "cpsplus/evolution/source.json": "39beadd20463fe14c4809497a65b507efec8f53a5a578158f90b7c6b2f16c08a",
+    "cpsplus/evolution/tests/tb_native_loader.sv": "a5d7f0a62a86180238b3d5214cff3a9dcb7baaaadca5f9cfe6e5ac6acdc9756d",
+    "cpsplus/evolution/tests/tb_z80_capacity.sv": "a6838d5a10a90bc3f664d652f172b5b34fc9f08e11d12e0ed1b204a336a4cbd3"
+  },
+  "runtime_sources": {
+    "cores/cps1/hdl/jtcps1_obj_draw.v": "bff42a8ec8c8737df20a4125003d8d4b6522924e1ea24caceb63f4b522362974",
+    "cores/cps1/hdl/jtcps1_prom_we.v": "578fcab847739f1fc482860f9866bb09ae844da333ab9bf12bcc698e8b72b54c",
+    "cores/cps1/hdl/jtcps1_scroll.v": "0368b5d2e1d67e5ab2be97bced58bb2e0eaa8d645d929499f992922a13624927",
+    "cores/cps1/hdl/jtcps1_sdram.v": "9e692a6bf244ed0bf582a5d1b85401d6057dc80b25894a06a28f4360a343ce0e",
+    "cores/cps1/hdl/jtcps1_tilemap.v": "398ac093188e45f66b857990ed75620cc8bbc1e6f517c638f7a4d60a6a52d8d9",
+    "cores/cps1/hdl/jtcps1_video.v": "02a6ab97c6153156899b15410e18d41651018615b412a684979a6c7523d87ab5",
+    "cores/cps15/hdl/jtcps15_sound.v": "8fadb5a1546a5a159ddd5e8e2156b50ff0edb4c10157b3738d02e9fea1e24fc9",
+    "cores/cps2/hdl/jtcps2_dec_ctrl.v": "d693889e5799afe7172708f85fc3635885fb1d17fd5d64d499b9e685e87eaa78",
+    "cores/cps2/hdl/jtcps2_game.v": "4066d2be4d4167d7cf0c7276bcc5811f6bc2332d80c0813355b021e92b27d97f",
+    "cores/cps2/hdl/jtcps2_main.v": "6a42d04c47c58c6af2b64bcd083ab672465e5ecdaff4e0dd2bbd39e852b683bc",
+    "cores/cps2/hdl/jtcps2_obj.v": "b8946354d4ea617488550989d2ef58781ee4dca8d127eb0c49a5f45e712a0c67",
+    "cores/cps2/hdl/jtcps2_obj_scan.v": "18b50f802e426f9a9c4d7ed149ad62173804abfd43048b620f902424436ac4cf",
+    "cores/cps2/hdl/jtcps2_objram.v": "eb687c11bb16bde75a69a52a975b1bac0940e6c32ba0858dbc00cba916676224",
+    "modules/jtframe/hdl/inc/jtframe_cps2_native.vh": "e2804ac443626a6043eab861db444a5e3e039d2b1a8f6de7e5eed933f448d094",
+    "modules/jtframe/hdl/sdram/jtframe_romrq_bcache.v": "af1843a4db9aae57a23699a044ce3179876cd7770639676203b340adbf3efe5d",
+    "modules/jtframe/hdl/sdram/jtframe_sdram64.v": "a80bdb375731f2d862e1f37f877df05cb127eef48a73ee9bba7cf7be7ba6f298",
+    "modules/jtframe/hdl/sdram/jtframe_sdram64_bank.v": "9029fc5807bb22f2d90fd6aa512120fc7889768068b17a1349096e4a6cd18707",
+    "modules/jtframe/hdl/sdram/jtframe_sdram64_latch.v": "f83d09116046fa3f082a9a2ebeaaec70db34fae136b88abeab47461e242010f0",
+    "modules/jtframe/hdl/sdram/jtframe_sdram64_rfsh.v": "1e8b4badcbc48cdd246ed636c153cff5e58e3c850c650d9791162085e08b455e",
+    "modules/jtframe/target/mister/hdl/jtframe_mister.sv": "4245ecef88980ea18c7db2c934bcf0295d003cf6b6305950f7f1c670b4945505",
+    "modules/jtframe/target/mister/hdl/jtframe_mister_dwnld.v": "b66f675a6adc9e93963018dafacd52cde09cf7705eee568f96e1ae1fd6f09b00",
+    "modules/jtframe/target/mister/hdl/sys/hps_io.sv": "6d5f3218fc6c0247c7dd0775f6e3c88684a082ef66f53c5c7d564e6ab23a6f9f",
+    "modules/jtframe/target/mister/syn/sdram_clk96.sdc": "65b0e6d87c302b7beb7e5f9e4a64abd3fd45aaeef16de0c27d8892af6d473653"
+  },
+  "schema_version": 1,
+  "status": "pass",
+  "unified": false,
+  "upstream_revision": "8e73fb10ef1cb8a539ec94db2a0f68ef89eb689c"
+}

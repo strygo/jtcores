@@ -1,0 +1,69 @@
+{
+  "donors": [
+    {
+      "crc32": "35190139",
+      "member": "vs2.01",
+      "routine_offsets": [
+        268,
+        684,
+        748,
+        3369,
+        4702,
+        4959,
+        12161
+      ],
+      "set": "vsav2",
+      "sha256": "27081d58de50f3905988d2521d1448776c20bd25d357c6be4a33e9e21f2c2bed"
+    },
+    {
+      "crc32": "67b9f779",
+      "member": "vh2.01",
+      "routine_offsets": [
+        268,
+        684,
+        748,
+        3369,
+        4702,
+        4959,
+        12161
+      ],
+      "set": "vhunt2",
+      "sha256": "6e308e1af4e7ed63b60447fbb23c89a6491695988a72994a04c989070ef86236"
+    }
+  ],
+  "observations": [
+    "PASS Capcom decoder: unmodified canonical routine, 30 banks x two edges, 32 upper-ROM reads"
+  ],
+  "recipes": {
+    "cpsplus/evolution/capacity/z80/driver_probe.py": "01200ac1b1c2c5b135534a257eaf3bd575c5a84a07221fcff745e79ce0b99561",
+    "cpsplus/evolution/capacity/z80/run_gate.py": "8bf81c3ab75a1e4b23bf2619d1280fc136379c48d3f3a7983d2f615fc05da8e4"
+  },
+  "routine_sha256": "b8bd56b73960c80e981b6583285456f713e0daa17de6b3096fe533873e5d0acb",
+  "runtime_sources": {
+    "cores/cps1/hdl/jtcps1_obj_draw.v": "bff42a8ec8c8737df20a4125003d8d4b6522924e1ea24caceb63f4b522362974",
+    "cores/cps1/hdl/jtcps1_prom_we.v": "578fcab847739f1fc482860f9866bb09ae844da333ab9bf12bcc698e8b72b54c",
+    "cores/cps1/hdl/jtcps1_scroll.v": "0368b5d2e1d67e5ab2be97bced58bb2e0eaa8d645d929499f992922a13624927",
+    "cores/cps1/hdl/jtcps1_sdram.v": "9e692a6bf244ed0bf582a5d1b85401d6057dc80b25894a06a28f4360a343ce0e",
+    "cores/cps1/hdl/jtcps1_tilemap.v": "398ac093188e45f66b857990ed75620cc8bbc1e6f517c638f7a4d60a6a52d8d9",
+    "cores/cps1/hdl/jtcps1_video.v": "02a6ab97c6153156899b15410e18d41651018615b412a684979a6c7523d87ab5",
+    "cores/cps15/hdl/jtcps15_sound.v": "8fadb5a1546a5a159ddd5e8e2156b50ff0edb4c10157b3738d02e9fea1e24fc9",
+    "cores/cps2/hdl/jtcps2_dec_ctrl.v": "d693889e5799afe7172708f85fc3635885fb1d17fd5d64d499b9e685e87eaa78",
+    "cores/cps2/hdl/jtcps2_game.v": "4066d2be4d4167d7cf0c7276bcc5811f6bc2332d80c0813355b021e92b27d97f",
+    "cores/cps2/hdl/jtcps2_main.v": "6a42d04c47c58c6af2b64bcd083ab672465e5ecdaff4e0dd2bbd39e852b683bc",
+    "cores/cps2/hdl/jtcps2_obj.v": "b8946354d4ea617488550989d2ef58781ee4dca8d127eb0c49a5f45e712a0c67",
+    "cores/cps2/hdl/jtcps2_obj_scan.v": "18b50f802e426f9a9c4d7ed149ad62173804abfd43048b620f902424436ac4cf",
+    "cores/cps2/hdl/jtcps2_objram.v": "eb687c11bb16bde75a69a52a975b1bac0940e6c32ba0858dbc00cba916676224",
+    "modules/jtframe/hdl/inc/jtframe_cps2_native.vh": "e2804ac443626a6043eab861db444a5e3e039d2b1a8f6de7e5eed933f448d094",
+    "modules/jtframe/hdl/sdram/jtframe_romrq_bcache.v": "af1843a4db9aae57a23699a044ce3179876cd7770639676203b340adbf3efe5d",
+    "modules/jtframe/hdl/sdram/jtframe_sdram64.v": "a80bdb375731f2d862e1f37f877df05cb127eef48a73ee9bba7cf7be7ba6f298",
+    "modules/jtframe/hdl/sdram/jtframe_sdram64_bank.v": "9029fc5807bb22f2d90fd6aa512120fc7889768068b17a1349096e4a6cd18707",
+    "modules/jtframe/hdl/sdram/jtframe_sdram64_latch.v": "f83d09116046fa3f082a9a2ebeaaec70db34fae136b88abeab47461e242010f0",
+    "modules/jtframe/hdl/sdram/jtframe_sdram64_rfsh.v": "1e8b4badcbc48cdd246ed636c153cff5e58e3c850c650d9791162085e08b455e",
+    "modules/jtframe/target/mister/hdl/jtframe_mister.sv": "4245ecef88980ea18c7db2c934bcf0295d003cf6b6305950f7f1c670b4945505",
+    "modules/jtframe/target/mister/hdl/jtframe_mister_dwnld.v": "b66f675a6adc9e93963018dafacd52cde09cf7705eee568f96e1ae1fd6f09b00",
+    "modules/jtframe/target/mister/hdl/sys/hps_io.sv": "6d5f3218fc6c0247c7dd0775f6e3c88684a082ef66f53c5c7d564e6ab23a6f9f",
+    "modules/jtframe/target/mister/syn/sdram_clk96.sdc": "65b0e6d87c302b7beb7e5f9e4a64abd3fd45aaeef16de0c27d8892af6d473653"
+  },
+  "scope": "address conversion only; full imported music playback needs its own gate",
+  "status": "pass"
+}

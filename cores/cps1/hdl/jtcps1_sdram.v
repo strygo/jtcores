@@ -20,7 +20,20 @@ module jtcps1_sdram #( parameter
            CPS     = 1,
            REGSIZE = 24,
            Z80_AW  = CPS==1 ? 16 : 19,
-           PCM_AW  = CPS==1 ? 18 : 23
+`ifdef CPS2_QSND24
+`ifdef CPS2_QSND32
+           PCM_AW  = CPS==1 ? 18 : 25, // 32 MiB byte-addressed sample store
+`else
+           PCM_AW  = CPS==1 ? 18 : 24, // flat 24-bit QSound: 16 MiB sample library in bank 1
+`endif
+`else
+           PCM_AW  = CPS==1 ? 18 : 23,
+`endif
+`ifdef CPS2_OBJEXT
+           SDRAMW  = 24 // 128 MiB module (JTFRAME_SDRAM_XL): object slice in bank 2 above 16 MiB
+`else
+           SDRAMW  = 23
+`endif
 ) (
     input           rst,
     input           clk,        // SDRAM clock (48/96)
@@ -34,12 +47,16 @@ module jtcps1_sdram #( parameter
     output          cfg_we,
 
     // ROM LOAD
+`ifdef CPS2_QSND24
+    input   [26:0]  ioctl_addr,    // JTFRAME_SDRAM_XL download bus: images above 64 MiB
+`else
     input   [25:0]  ioctl_addr,
+`endif
     input   [ 7:0]  ioctl_dout,
     output  [ 7:0]  ioctl_din,
     input           ioctl_wr,
     input           ioctl_ram,
-    output  [22:0]  prog_addr,
+    output  [SDRAMW-1:0] prog_addr,
     output  [15:0]  prog_data,
     output  [ 1:0]  prog_mask,
     output  [ 1:0]  prog_ba,
@@ -64,7 +81,16 @@ module jtcps1_sdram #( parameter
     // Main CPU
     input           main_rom_cs,
     output          main_rom_ok,
+`ifdef CPS2_PRG8
+    output          cps2_prog_ext,
+    input    [21:0] main_rom_addr,
+`else
     input    [20:0] main_rom_addr,
+`endif
+`ifdef CPS2_OBJEXT
+    output          cps2_obj_ext,  // image declares the object extension slice
+    output          gfx_oram_ext,  // extension bit of the object entry the frame copy is reading
+`endif
     output   [15:0] main_rom_data,
 
     // VRAM
@@ -118,7 +144,14 @@ module jtcps1_sdram #( parameter
     output          rom1_ok,
 
     input    [19:0] rom0_addr,
+`ifdef CPS2_OBJEXT
+    input    [ 2:0] rom0_bank,  // {extension bit, y[14:13]}
+`else
     input    [ 1:0] rom0_bank,
+`endif
+`ifdef CPS2_SCREXT
+    input           rom1_ext,
+`endif
     input    [19:0] rom1_addr,
 
     input           rom0_half,
@@ -139,10 +172,10 @@ module jtcps1_sdram #( parameter
     input             star1_cs,
 
     // Bank 0: allows R/W
-    output   [22:0] ba0_addr,
-    output   [22:0] ba1_addr,
-    output   [22:0] ba2_addr,
-    output   [22:0] ba3_addr,
+    output   [SDRAMW-1:0] ba0_addr,
+    output   [SDRAMW-1:0] ba1_addr,
+    output   [SDRAMW-1:0] ba2_addr,
+    output   [SDRAMW-1:0] ba3_addr,
     output   [ 3:0] ba_rd,
     output   [ 3:0] ba_wr,
     output   [15:0] ba0_din,
@@ -153,6 +186,9 @@ module jtcps1_sdram #( parameter
     input    [ 3:0] ba_rdy,
 
     input    [15:0] data_read,
+`ifdef CPS2_Z80_512
+    output          cps2_z80_ext,
+`endif
     output          dump_flag
 );
 
@@ -196,18 +232,40 @@ localparam EEPROM_AW=7, EEPROM_DW=8;
 localparam EEPROM_AW=6, EEPROM_DW=16;
 `endif
 
-(*keep*) wire [22:0] cps2_gfx0;
+(*keep*) wire [SDRAMW-1:0] cps2_gfx0;
 wire [21:0] gfx1_addr, gfx0_addr;
-wire [22:0] main_offset;
+wire [SDRAMW-1:0] main_offset;
 wire        ram_vram_cs;
 wire        ba2_rdy_gfx, ba2_ack_gfx;
 reg  [20:1] main_addr_x; // main addr modified for object bank access
 reg         ocache_clr, obank_last;
 wire        dump_we;
 
+`ifdef CPS2_PRG8
+// Byte offsets 4..8 MiB contain VRAM, objects, work RAM and sound ROM.
+// Widen the slot AND its cache tags to retain the physical extension bit.
+localparam MAIN_ROM_AW = 23;
+wire [22:0] main_rom_phys = {main_rom_addr[21], 1'b0, main_rom_addr[20:0]};
+`else
+localparam MAIN_ROM_AW = 21;
+wire [20:0] main_rom_phys = main_rom_addr;
+`endif
+
 
 assign gfx0_addr   = {rom0_addr, rom0_half, 1'b0 }; // OBJ
 assign gfx1_addr   = {rom1_addr, rom1_half, 1'b0 };
+`ifdef CPS2_SCREXT
+`ifndef CPS2_GFX64
+    `CPS2_SCREXT_requires_CPS2_GFX64
+`endif
+`ifndef CPS2
+    `CPS2_SCREXT_requires_CPS2
+`endif
+// Scroll keeps the native bank-3 window: low library bytes 8..16 MiB,
+// or high library bytes 40..48 MiB. The request carries the tile's bit;
+// old image modes ignore it even if native attributes happen to set bit 9.
+wire [23:0] gfx1_full = {rom1_ext & cps2_gfx_full, 1'b0, gfx1_addr};
+`endif
 assign ram_vram_cs = main_ram_cs | main_vram_cs | main_oram_cs;
 // VRAM_OFFSET is selected during reset
 assign main_offset = main_oram_cs ? ORAM_OFFSET :
@@ -228,6 +286,31 @@ always @(*) begin
     `endif
 end
 
+`ifdef CPS2_QSND24
+`ifndef CPS2_OBJEXT
+    // PCM_AW = 24 needs 24-bit SDRAM word addresses (jtframe_romrq pads the
+    // slot address to SDRAMW bits) and a 64.25 MiB image needs the 27-bit
+    // download bus: both come with the objext profile (JTFRAME_SDRAM_XL).
+    `CPS2_QSND24_requires_CPS2_OBJEXT
+`endif
+// Flat 24-bit QSound sample address. The DSP latches all eight bank bits;
+// the image header decides whether they reach SDRAM: with the capability
+// (marker bit 04) bank bytes 0x80..0xff read library bytes 8..16 MiB, in
+// bank 1 bytes 8..16 MiB (chip 0: word address bit 23 stays 0); without it
+// bit 23 is cleared, the stock mirror of the 8 MiB library.
+`ifdef CPS2_GFX64
+wire        cps2_gfx_full;
+`endif
+wire        cps2_qsnd_ext;
+`ifdef CPS2_QSND32
+wire cps2_qsnd32;
+wire [24:0] pcm_flat = { pcm_addr[24] & cps2_qsnd32,
+                         pcm_addr[23] & cps2_qsnd_ext, pcm_addr[22:0] };
+`else
+wire [23:0] pcm_flat = { pcm_addr[23] & cps2_qsnd_ext, pcm_addr[22:0] };
+`endif
+`endif
+
 jtcps1_prom_we #(
     .CPS        ( CPS           ),
     .REGSIZE    ( REGSIZE       ),
@@ -235,6 +318,24 @@ jtcps1_prom_we #(
     .PCM_OFFSET ( PCM_OFFSET    ),
     .SND_OFFSET ( SND_OFFSET    )
 ) u_prom_we(
+`ifdef CPS2_PRG8
+    .cps2_prog_ext   ( cps2_prog_ext ),
+`endif
+`ifdef CPS2_OBJEXT
+    .cps2_obj_ext    ( cps2_obj_ext  ),
+`endif
+`ifdef CPS2_QSND24
+    .cps2_qsnd_ext   ( cps2_qsnd_ext ),
+`ifdef CPS2_QSND32
+    .cps2_qsnd32     ( cps2_qsnd32 ),
+`ifdef CPS2_Z80_512
+    .cps2_z80_ext    ( cps2_z80_ext ),
+`endif
+`endif
+`ifdef CPS2_GFX64
+    .cps2_gfx_full   ( cps2_gfx_full ),
+`endif
+`endif
     .clk            ( clk           ),
     .ioctl_rom      ( ioctl_rom     ),
     .ioctl_addr     ( ioctl_addr    ),
@@ -257,8 +358,43 @@ jtcps1_prom_we #(
     .joymode        ( cps2_joymode  )
 );
 
+`ifdef CPS2_OBJEXT
+`ifndef JTFRAME_SDRAM_XL
+    // The slice needs 24-bit SDRAM word addresses (128 MiB module).
+    `CPS2_OBJEXT_requires_JTFRAME_SDRAM_XL
+`endif
+// Object extension bits: one per entry of each physical object RAM bank.
+// Written beside the CPU's object RAM writes (any word or byte of the entry
+// decides: CPU A14 set = alias window = 1, clear = normal window = 0) and
+// read by the frame copy at the entry it is copying, so the bit is latched
+// with the four words of the entry. Cleared during reset like the SDRAM
+// object table. Held at zero while the image does not declare the slice.
+reg  [10:0] objext_clr = 0;
+wire        objext_we  = rst | (main_oram_cs & ~main_rnw & ~&dsn);
+wire [10:0] objext_wa  = rst ? objext_clr : {main_ram_addr[15]^obank, main_ram_addr[12:3]};
+wire        objext_din = ~rst & main_ram_addr[14] & cps2_obj_ext;
+wire        objext_q;
+
+assign gfx_oram_ext = objext_q & cps2_obj_ext;
+
+always @(posedge clk) objext_clr <= rst ? objext_clr+1'd1 : 11'd0;
+
+jtframe_dual_ram #(.DW(1),.AW(11)) u_objext(
+    .clk0   ( clk           ),
+    .data0  ( objext_din    ),
+    .addr0  ( objext_wa     ),
+    .we0    ( objext_we     ),
+    .q0     (               ),
+    .clk1   ( clk_gfx       ),
+    .data1  ( 1'b0          ),
+    .addr1  ( { gfx_oram_addr[12], gfx_oram_addr[11:2] } ),
+    .we1    ( 1'b0          ),
+    .q1     ( objext_q      )
+);
+`endif
+
 jtframe_ram1_5slots #(
-    .SDRAMW      ( 23            ),
+    .SDRAMW      ( SDRAMW        ),
     .SLOT0_ERASE (  1            ),
     .SLOT0_AW    ( 20            ), // Main CPU RAM
     .SLOT0_DW    ( 16            ),
@@ -276,7 +412,7 @@ jtframe_ram1_5slots #(
     .SLOT2_DOUBLE(  1            ),
     .SLOT2_OFFSET( ORAM_OFFSET   ),
 
-    .SLOT3_AW    ( 21            ), // Main CPU ROM
+    .SLOT3_AW    ( MAIN_ROM_AW   ), // Main CPU ROM, including physical cache tags
     .SLOT3_DW    ( 16            ),
     .SLOT3_LATCH (  1            ),
     .SLOT3_DOUBLE(  1            ),
@@ -314,7 +450,7 @@ jtframe_ram1_5slots #(
     .slot0_addr  ( main_addr_x   ),
     .slot1_addr  ( vram_dma_addr ),
     .slot2_addr  ( gfx_oram_addr ),
-    .slot3_addr  ( main_rom_addr ),
+    .slot3_addr  ( main_rom_phys ),
     .slot4_addr  ( snd_addr      ),
 
     .slot0_dout  ( main_ram_data ),
@@ -336,7 +472,7 @@ jtframe_ram1_5slots #(
 );
 
 jtframe_rom_1slot #(
-    .SDRAMW      ( 23            ),
+    .SDRAMW      ( SDRAMW        ),
     .SLOT0_AW    ( PCM_AW        ), // PCM
     .SLOT0_DW    (  8            )
 ) u_bank1 (
@@ -345,7 +481,11 @@ jtframe_rom_1slot #(
 
     .slot0_cs    ( pcm_cs        ),
     .slot0_ok    ( pcm_ok        ),
+`ifdef CPS2_QSND24
+    .slot0_addr  ( pcm_flat      ),
+`else
     .slot0_addr  ( pcm_addr      ),
+`endif
     .slot0_dout  ( pcm_data      ),
 
     .sdram_addr  ( ba1_addr      ),
@@ -360,6 +500,28 @@ wire [ 1:0] objgfx_cs, objgfx_ok;
 wire [31:0] objgfx_dout0, objgfx_dout1;
 
 `ifdef CPS2
+`ifdef CPS2_OBJEXT
+    // Tile code bit 18 (the object extension bit) becomes SDRAM word address
+    // bit 23 of the same OBJ slot: with bank bits 00 that is the 8 MiB slice
+    // at bank 2 bytes 16..24 MiB (image graphics offsets 32..40 MiB). ext=1
+    // with bank bits != 00 is reserved for the 64 MiB library: it draws
+    // transparent without an SDRAM access. Capability off: stock mapping.
+    wire ext_sel   = rom0_bank[2] & cps2_obj_ext;
+`ifdef CPS2_GFX64
+    // All eight native 8 MiB banks under the development full-range marker.
+    // Old images retain their reserved-bank transparency on this same core.
+    wire ext_blank = ext_sel & |rom0_bank[1:0] & ~cps2_gfx_full;
+`else
+    wire ext_blank = ext_sel & |rom0_bank[1:0];
+`endif
+    assign objgfx_cs = {2{rom0_cs & ~ext_blank}} & { rom0_bank[0], ~rom0_bank[0] };
+    assign cps2_gfx0 = { ext_sel, rom0_bank[1], gfx0_addr };
+
+    always @(*) begin
+        rom0_ok   = ext_blank ? 1'b1 : (rom0_bank[0] ? objgfx_ok[1] : objgfx_ok[0]);
+        rom0_data = ext_blank ? 32'hffff_ffff : (rom0_bank[0] ? objgfx_dout1 : objgfx_dout0);
+    end
+`else
     assign objgfx_cs = {2{rom0_cs}} & { rom0_bank[0], ~rom0_bank[0] };
     assign cps2_gfx0 = { rom0_bank[1], gfx0_addr };
 
@@ -367,11 +529,12 @@ wire [31:0] objgfx_dout0, objgfx_dout1;
         rom0_ok   = rom0_bank[0] ? objgfx_ok[1] : objgfx_ok[0];
         rom0_data = rom0_bank[0] ? objgfx_dout1 : objgfx_dout0;
     end
+`endif
 
     jtframe_rom_1slot #(
-        .SDRAMW      ( 23            ),
+        .SDRAMW      ( SDRAMW        ),
         // Slot 0: Obj
-        .SLOT0_AW    ( 23            ),
+        .SLOT0_AW    ( SDRAMW        ),
         .SLOT0_DW    ( 32            ),
         .SLOT0_DOUBLE( 1             ),
         .SLOT0_LATCH ( OBJ_LATCH     )
@@ -397,7 +560,7 @@ wire [31:0] objgfx_dout0, objgfx_dout1;
         rom0_ok   = objgfx_ok[1];
         rom0_data = objgfx_dout1;
     end
-    assign cps2_gfx0 = { 1'b0, gfx0_addr };
+    assign cps2_gfx0 = { {SDRAMW-22{1'b0}}, gfx0_addr };
     assign ba_rd[2] = 0;
     assign ba2_addr = 0;
 `endif
@@ -407,16 +570,20 @@ wire [21:0] gfx_star0 = { 1'b0, star_bank, 5'd0, star0_addr, 2'b00 },
             gfx_star1 = { 1'b0, star_bank, 5'd0, star1_addr, 2'b10 };
 
 jtframe_rom_4slots #(
-    .SDRAMW      ( 23            ),
+    .SDRAMW      ( SDRAMW        ),
     // Slot 0: Obj
-    .SLOT0_AW    ( 23            ),
+    .SLOT0_AW    ( SDRAMW        ),
     .SLOT0_DW    ( 32            ),
     .SLOT0_OFFSET( ZERO_OFFSET   ),
     .SLOT0_LATCH ( OBJ_LATCH     ),
     .SLOT0_DOUBLE( 1             ),
 
     // Slot 1: Scroll
+`ifdef CPS2_SCREXT
+    .SLOT1_AW    ( SDRAMW        ),
+`else
     .SLOT1_AW    ( 22            ),
+`endif
     .SLOT1_DW    ( 32            ),
     .SLOT1_OFFSET( SCR_OFFSET    ),
     .SLOT1_DOUBLE( 1             ),
@@ -441,7 +608,11 @@ jtframe_rom_4slots #(
     .slot1_ok    ( rom1_ok       ),
 
     .slot0_addr  ( cps2_gfx0     ),
+`ifdef CPS2_SCREXT
+    .slot1_addr  ( gfx1_full     ),
+`else
     .slot1_addr  ( gfx1_addr     ),
+`endif
 
     .slot0_dout  ( objgfx_dout1  ),
     .slot1_dout  ( rom1_data     ),

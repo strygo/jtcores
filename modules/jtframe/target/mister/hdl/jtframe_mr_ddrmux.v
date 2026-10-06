@@ -27,6 +27,9 @@ module jtframe_mr_ddrmux(
     input          cpsp_rd,
     output         cpsp_busy,
     output         cpsp_sel,
+`ifdef CPS2_UNIFIED
+    output         cpsp_idle,
+`endif
     input          ddr_dout_ready,  // for burst-boundary grant switching
 `endif
     // Fast DDR load
@@ -73,11 +76,18 @@ module jtframe_mr_ddrmux(
 `endif
 
 reg ddrld_en;
+`ifdef CPS2_UNIFIED
+reg [8:0] beats;
+`endif
 
 always @(posedge clk, posedge rst) begin
     if( rst ) begin
         ddrld_en <= 0;
-    end else if(!ddr_busy) begin
+    end else if(!ddr_busy
+`ifdef CPS2_UNIFIED
+        && beats==0 && !ddr_rd && !ddr_we
+`endif
+    ) begin
         case( {DDRLOAD[0], VERTICAL[0] || LFBUF[0]} )
             2'b00: ddrld_en <= 0; // don't care
             2'b10: ddrld_en <= 1;
@@ -94,7 +104,9 @@ end
 // A vertical game actively rotating keeps the bus — video has priority and
 // CPS+ packs target horizontal games (see cpsplus INTEGRATION.md).
 reg        cpsp_en;
+`ifndef CPS2_UNIFIED
 reg [ 8:0] beats;                    // outstanding beats of a granted read
+`endif
 wire       rot_req = rot_rd | rot_we;
 
 always @(posedge clk, posedge rst) begin
@@ -111,6 +123,9 @@ always @(posedge clk, posedge rst) begin
     end
 end
 
+`ifdef CPS2_UNIFIED
+assign cpsp_idle = !cpsp_rd && !(cpsp_en && beats!=0);
+`endif
 assign cpsp_sel  = cpsp_en;
 assign cpsp_busy = ~cpsp_en | ddr_busy;
 

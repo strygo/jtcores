@@ -116,6 +116,15 @@ u_game(
 
 `ifdef CPSPLUS
     // CPS+ arranged-audio DDR client
+`ifdef CPS2_UNIFIED
+    .cpsp_game_hold      ( cpsp_game_hold      ),
+    .cpsp_music_reset    ( cpsp_music_reset    ),
+    .cpsp_music_boot     ( cpsp_music_boot     ),
+    .cpsp_music_indirect ( cpsp_music_indirect ),
+    .cpsp_music_extent   ( cpsp_music_extent   ),
+    .cpsp_music_ready    ( cpsp_music_ready    ),
+    .cpsp_music_status   ( cpsp_music_status   ),
+`endif
     .cpsp_busy      ( cpsp_busy       ),
     .cpsp_burstcnt  ( cpsp_burstcnt   ),
     .cpsp_addr      ( cpsp_addr       ),

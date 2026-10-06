@@ -1,0 +1,391 @@
+diff --git a/cores/cps1/hdl/jtcps1_prom_we.v b/cores/cps1/hdl/jtcps1_prom_we.v
+--- a/cores/cps1/hdl/jtcps1_prom_we.v
++++ b/cores/cps1/hdl/jtcps1_prom_we.v
+@@ -62,6 +62,9 @@
+ `ifdef CPS2_QSND24
+     ,output reg         cps2_qsnd_ext = 1'b0
+ `endif
++`ifdef CPS2_QSND32
++    ,output reg         cps2_qsnd32 = 0
++`endif
+ `ifdef CPS2_GFX64
+     ,output reg         cps2_gfx_full = 1'b0
+ `endif
+@@ -72,8 +75,29 @@
+ reg native_mode=0, native_bad=0, native_header_ok=0, native_finish=0;
+ reg native_last_rom=0;
+ reg [26:0] native_next=0;
++`ifdef CPS2_QSND32
++reg native_sample32=0;
++wire [26:0] native_end = native_sample32 ? NATIVE32_END : NATIVE_END;
++wire native_early_wide = ioctl_addr==14 ? ioctl_dout==3 : native_sample32;
++wire native_header_match = ioctl_addr<8 ?
++    (ioctl_dout==native_expected_profile(ioctl_addr[6:0],0) ||
++     ioctl_dout==native_expected_profile(ioctl_addr[6:0],1)) :
++    ioctl_dout==native_expected_profile(ioctl_addr[6:0],native_early_wide);
++wire native_mirror_ok = snd_start==16'h2000 && pcm_start==16'h2100 &&
++    qsnd_start==(native_sample32 ? 16'ha100 : 16'h6100) &&
++    gfx_start==(native_sample32 ? 16'ha108 : 16'h6108);
++always @(posedge clk) begin
++    if((ioctl_rom && !native_last_rom) || (ioctl_wr && ioctl_rom && ioctl_addr==0)) native_sample32<=0;
++    else if(ioctl_wr && ioctl_rom && !ioctl_ram && ioctl_addr==14) native_sample32<=ioctl_dout==3;
++end
++`endif
++`ifdef CPS2_QSND32
++wire native_write = !native_mode || (native_header_ok && !native_bad &&
++                    ioctl_addr>=128 && ioctl_addr<native_end && ioctl_addr==native_next);
++`else
+ wire native_write = !native_mode || (native_header_ok && !native_bad &&
+                     ioctl_addr>=128 && ioctl_addr<NATIVE_END && ioctl_addr==native_next);
++`endif
+ wire native_load = native_mode && native_header_ok && !native_bad;
+ wire load_prog_ext = native_load || cps2_prog_ext;
+ wire load_obj_ext  = native_load || cps2_obj_ext;
+@@ -100,20 +124,35 @@
+             native_finish <= 0;
+         end else begin
+             native_next <= native_next+1'b1;
++`ifdef CPS2_QSND32
++            if(ioctl_addr!=native_next ||
++               (ioctl_addr<128 && native_fixed(ioctl_addr[6:0]) &&
++                !native_header_match) ||
++               (native_mode && ioctl_addr>=native_end)) native_bad <= 1;
++`else
+             if(ioctl_addr!=native_next ||
+                (ioctl_addr<128 && native_fixed(ioctl_addr[6:0]) &&
+                 ioctl_dout!=native_expected(ioctl_addr[6:0])) ||
+                (native_mode && ioctl_addr>=NATIVE_END)) native_bad <= 1;
++`endif
+             if(ioctl_addr==14 && ext_header_step==2)
+                 native_mode <= ioctl_dout!=1 && ioctl_dout!=8'h7f;
+             if(ioctl_addr==127)
+                 native_header_ok <= !native_bad && ioctl_addr==native_next &&
++`ifdef CPS2_QSND32
++                                    ioctl_dout==native_expected(127) && native_mirror_ok;
++`else
+                                     ioctl_dout==native_expected(127);
++`endif
+         end
+     end
+     if(!ioctl_rom && native_last_rom && native_mode) begin
+         native_finish <= 1;
++`ifdef CPS2_QSND32
++        if(native_next!=native_end || !native_header_ok) native_bad <= 1;
++`else
+         if(native_next!=NATIVE_END || !native_header_ok) native_bad <= 1;
++`endif
+     end
+     if(native_finish && !ioctl_rom && !native_bad && (!prog_we || prog_rdy)) native_finish <= 0;
+ end
+@@ -245,6 +284,9 @@
+         cps2_prog_ext <= 0;
+         cps2_obj_ext <= 0;
+         cps2_qsnd_ext <= 0;
++`ifdef CPS2_QSND32
++        cps2_qsnd32 <= 0;
++`endif
+         cps2_gfx_full <= 0;
+     end
+ `endif
+@@ -256,6 +298,9 @@
+ `endif
+ `ifdef CPS2_QSND24
+             cps2_qsnd_ext <= 0;
++`ifdef CPS2_QSND32
++            cps2_qsnd32 <= 0;
++`endif
+ `endif
+ `ifdef CPS2_GFX64
+             cps2_gfx_full <= 0;
+@@ -269,6 +314,9 @@
+ `endif
+ `ifdef CPS2_QSND24
+             cps2_qsnd_ext <= 0;
++`ifdef CPS2_QSND32
++            cps2_qsnd32 <= 0;
++`endif
+ `endif
+ `ifdef CPS2_GFX64
+             cps2_gfx_full <= 0;
+@@ -318,6 +366,9 @@
+         cps2_prog_ext <= 1;
+         cps2_obj_ext <= 1;
+         cps2_qsnd_ext <= 1;
++`ifdef CPS2_QSND32
++        cps2_qsnd32 <= native_sample32;
++`endif
+         cps2_gfx_full <= 1;
+     end
+ `endif
+@@ -420,7 +471,11 @@
+         prog_mask <= !ioctl_addr[0] ? 2'b10 : 2'b01;
+         prog_addr <= is_cpu ? cpu_phys + CPU_OFFSET : (
+                      is_snd ?  snd_addr[23:1] + SND_OFFSET : (
++`ifdef CPS2_QSND32
++                     is_oki ? (native_load && native_sample32 ? pcm_addr[24:1] : {1'b0,pcm_addr[23:1]}) + PCM_OFFSET :
++`else
+                      is_oki ?  pcm_addr[23:1] + PCM_OFFSET :
++`endif
+                      is_gfx ?  gfx_phys + GFX_OFFSET : {10'd0, bulk_addr[12:0]}));
+         prog_ba   <= (is_cpu||is_snd) ? 2'd0 : ( is_gfx ? gfx_bank : 2'd1 );
+         if( is_kabuki )
+diff --git a/cores/cps1/hdl/jtcps1_sdram.v b/cores/cps1/hdl/jtcps1_sdram.v
+--- a/cores/cps1/hdl/jtcps1_sdram.v
++++ b/cores/cps1/hdl/jtcps1_sdram.v
+@@ -21,7 +21,11 @@
+            REGSIZE = 24,
+            Z80_AW  = CPS==1 ? 16 : 19,
+ `ifdef CPS2_QSND24
++`ifdef CPS2_QSND32
++           PCM_AW  = CPS==1 ? 18 : 25, // 32 MiB byte-addressed sample store
++`else
+            PCM_AW  = CPS==1 ? 18 : 24, // flat 24-bit QSound: 16 MiB sample library in bank 1
++`endif
+ `else
+            PCM_AW  = CPS==1 ? 18 : 23,
+ `endif
+@@ -295,7 +299,13 @@
+ wire        cps2_gfx_full;
+ `endif
+ wire        cps2_qsnd_ext;
++`ifdef CPS2_QSND32
++wire cps2_qsnd32;
++wire [24:0] pcm_flat = { pcm_addr[24] & cps2_qsnd32,
++                         pcm_addr[23] & cps2_qsnd_ext, pcm_addr[22:0] };
++`else
+ wire [23:0] pcm_flat = { pcm_addr[23] & cps2_qsnd_ext, pcm_addr[22:0] };
++`endif
+ `endif
+ 
+ jtcps1_prom_we #(
+@@ -313,6 +323,9 @@
+ `endif
+ `ifdef CPS2_QSND24
+     .cps2_qsnd_ext   ( cps2_qsnd_ext ),
++`ifdef CPS2_QSND32
++    .cps2_qsnd32     ( cps2_qsnd32 ),
++`endif
+ `ifdef CPS2_GFX64
+     .cps2_gfx_full   ( cps2_gfx_full ),
+ `endif
+diff --git a/cores/cps15/hdl/jtcps15_sound.v b/cores/cps15/hdl/jtcps15_sound.v
+--- a/cores/cps15/hdl/jtcps15_sound.v
++++ b/cores/cps15/hdl/jtcps15_sound.v
+@@ -49,7 +49,11 @@
+     // bits 7:0 (the Z80 driver sends 0x8000|bank), so banks 0x80..0xff reach
+     // the upper 8 MiB. jtcps1_sdram clears bit 23 while the image does not
+     // declare the flat library, which is the stock 8 MiB mirror.
++`ifdef CPS2_QSND32
++    output reg [24:0] qsnd_addr, // up to 32 MiB; runtime mask in SDRAM path
++`else
+     output reg [23:0] qsnd_addr, // max 16 MB.
++`endif
+ `else
+     output reg [22:0] qsnd_addr, // max 8 MB.
+ `endif
+@@ -330,7 +334,11 @@
+     if ( rst ) begin
+         audio_ws   <= 0;
+ `ifdef CPS2_QSND24
++`ifdef CPS2_QSND32
++        qsnd_addr  <= 25'd0;
++`else
+         qsnd_addr  <= 24'd0;
++`endif
+ `else
+         qsnd_addr  <= 23'd0;
+ `endif
+@@ -376,7 +384,11 @@
+         end
+         if( dsp_ab[15] && dsp_cen_cko ) begin
+ `ifdef CPS2_QSND24
++`ifdef CPS2_QSND32
++            qsnd_addr[24:16] <= dsp_ab[8:0]; // native DSP bank bus
++`else
+             qsnd_addr[23:16] <= dsp_ab[7:0]; // bank byte, all eight bits
++`endif
+ `else
+             qsnd_addr[22:16] <= dsp_ab[6:0];
+ `endif
+@@ -445,7 +457,11 @@
+     rom_addr   = 19'd0;
+     rom_cs     = 1'b0;
+ `ifdef CPS2_QSND24
++`ifdef CPS2_QSND32
++    qsnd_addr  = 25'd0;
++`else
+     qsnd_addr  = 24'd0;
++`endif
+ `else
+     qsnd_addr  = 23'd0;
+ `endif
+diff --git a/cores/cps2/hdl/jtcps2_game.v b/cores/cps2/hdl/jtcps2_game.v
+--- a/cores/cps2/hdl/jtcps2_game.v
++++ b/cores/cps2/hdl/jtcps2_game.v
+@@ -29,7 +29,11 @@
+ wire [15:0] oram_base;
+ wire [18:0] snd_addr;
+ `ifdef CPS2_QSND24
++`ifdef CPS2_QSND32
++wire [24:0] qsnd_addr; // capacity profile; address masks remain image-specific
++`else
+ wire [23:0] qsnd_addr; // flat 24-bit QSound sample address (16 MiB library)
++`endif
+ `else
+ wire [22:0] qsnd_addr;
+ `endif
+diff --git a/modules/jtframe/hdl/inc/jtframe_cps2_native.vh b/modules/jtframe/hdl/inc/jtframe_cps2_native.vh
+--- a/modules/jtframe/hdl/inc/jtframe_cps2_native.vh
++++ b/modules/jtframe/hdl/inc/jtframe_cps2_native.vh
+@@ -35,6 +35,43 @@
+         native_expected = word_value[{address[1:0],3'b000}+:8];
+     end
+ endfunction
++`ifdef CPS2_QSND32
++`ifndef CPS2_QSND24
++    `CPS2_QSND32_requires_CPS2_QSND24
++`endif
++localparam [26:0] NATIVE32_END = 27'd109322368;
++function [7:0] native_expected_profile;
++    input [6:0] address;
++    input wide;
++    reg [31:0] word_value;
++    begin
++        case(address[6:2])
++            5'd0: word_value = 32'h21002000;
++            5'd1: word_value = 32'ha100a108;
++            5'd2: word_value = 32'h00000000;
++            5'd3: word_value = 32'h07033243;
++            5'd16: word_value = 32'h58453243;
++            5'd17: word_value = 32'h00400003;
++            5'd18: word_value = 32'h00000080;
++            5'd19: word_value = 32'h00800000;
++            5'd20: word_value = 32'h00800080;
++            5'd21: word_value = 32'h00040000;
++            5'd22: word_value = 32'h00840080;
++            5'd23: word_value = 32'h02000000;
++            5'd24: word_value = 32'h02840080;
++            5'd25: word_value = 32'h00002000;
++            5'd26: word_value = 32'h02842080;
++            5'd27: word_value = 32'h04000000;
++            5'd28: word_value = 32'h06842080;
++            5'd29: word_value = 32'h00000000;
++            5'd30: word_value = 32'h00000000;
++            5'd31: word_value = 32'h00000000;
++            default: word_value = 0;
++        endcase
++        native_expected_profile = wide ? word_value[{address[1:0],3'b000}+:8] : native_expected(address);
++    end
++endfunction
++`endif
+ function native_fixed;
+     input [6:0] address;
+     begin native_fixed = address < 16 || address >= 64; end
+diff --git a/modules/jtframe/hdl/sdram/jtframe_romrq_bcache.v b/modules/jtframe/hdl/sdram/jtframe_romrq_bcache.v
+--- a/modules/jtframe/hdl/sdram/jtframe_romrq_bcache.v
++++ b/modules/jtframe/hdl/sdram/jtframe_romrq_bcache.v
+@@ -71,7 +71,13 @@
+ reg          dend, double, cache_ok;
+ wire [AW-1:0] shifted;
+ 
++`ifdef CPS2_QSND32
++// An 8-bit ROM consumer has one more byte-address bit than SDRAM words.
++wire [SDRAMW-1:0] rom_word_addr = SDRAMW'(addr_req >> (DW==8));
++assign sdram_addr = offset + rom_word_addr;
++`else
+ assign sdram_addr = offset + { {SDRAMW-AW{1'b0}}, addr_req>>(DW==8)};
++`endif
+ assign data_ok    = cache_ok && {hit1,hit0}==hitl && (hit1 || hit0);
+ 
+ always @(*) begin
+diff --git a/modules/jtframe/target/mister/hdl/jtframe_mister_dwnld.v b/modules/jtframe/target/mister/hdl/jtframe_mister_dwnld.v
+--- a/modules/jtframe/target/mister/hdl/jtframe_mister_dwnld.v
++++ b/modules/jtframe/target/mister/hdl/jtframe_mister_dwnld.v
+@@ -191,13 +191,35 @@
+ reg native_extent_bad=0;
+ wire new_rom_download = hps_download && !last_dwn && is_rom;
+ reg [3:0] image_error=0; // 1 header, 2 extent/overflow; retained until reload
++`ifdef CPS2_QSND32
++reg native_sample32=0;
++reg [63:0] native_mirror=0;
++wire native_early_wide = ddram_cnt==1 ? ddram_dout[55:48]==3 : native_sample32;
++wire [26:0] native_end = native_sample32 ? NATIVE32_END : NATIVE_END;
++wire native_mirror_ok = native_mirror == (native_sample32 ? 64'ha100a10821002000 : 64'h6100610821002000);
++always @(posedge clk, posedge rst) begin
++    if(rst) begin native_sample32<=0; native_mirror<=0; end
++    else if(new_rom_download) begin native_sample32<=0; native_mirror<=0; end
++    else if(ddr_dwn && ddram_wait && !ddram_busy && ddram_dout_ready && ddram_page==0) begin
++        if(ddram_cnt==0) native_mirror<=ddram_dout;
++        if(ddram_cnt==1) native_sample32<=ddram_dout[55:48]==3;
++    end
++end
++`endif
+ integer header_lane;
+ reg header_word_bad;
+ always @(*) begin
+     header_word_bad=0;
+     for(header_lane=0;header_lane<8;header_lane=header_lane+1)
+         if(native_fixed({ddram_cnt[3:0],3'b000}+header_lane[6:0]) &&
++`ifdef CPS2_QSND32
++           (ddram_cnt==0 ?
++            (ddram_dout[header_lane*8+:8] != native_expected_profile({ddram_cnt[3:0],3'b000}+header_lane[6:0],0) &&
++             ddram_dout[header_lane*8+:8] != native_expected_profile({ddram_cnt[3:0],3'b000}+header_lane[6:0],1)) :
++             ddram_dout[header_lane*8+:8] != native_expected_profile({ddram_cnt[3:0],3'b000}+header_lane[6:0],native_early_wide)))
++`else
+            ddram_dout[header_lane*8+:8] != native_expected({ddram_cnt[3:0],3'b000}+header_lane[6:0]))
++`endif
+             header_word_bad=1;
+ end
+ always @(posedge clk, posedge rst) begin
+@@ -218,7 +240,11 @@
+     end else begin
+         if(!hps_download && last_dwn && ioctl_rom && !wr_latch) begin
+             native_preflight<=1;
++            `ifdef CPS2_QSND32
++            native_extent_bad<=hps_overflow;
++`else
+             native_extent_bad<=hps_overflow || hps_addr!=NATIVE_END;
++`endif
+         end
+         if(ddr_dwn && ddram_wait && !ddram_busy && ddram_dout_ready && ddram_page==0) begin
+             if(ddram_cnt<16 && header_word_bad) native_bad<=1;
+@@ -229,9 +255,15 @@
+             if(ddram_cnt==8 && ddram_dout[31:0]==32'h58453243) native_mode<=1;
+             if(cnt_over) begin
+                 native_preflight<=0;
++`ifdef CPS2_QSND32
++                native_error<=native_mode && (native_bad || !native_mirror_ok || native_extent_bad || hps_addr!=native_end);
++                if(native_mode && (native_bad || !native_mirror_ok || native_extent_bad || hps_addr!=native_end))
++                    image_error<=(native_bad || !native_mirror_ok) ? 4'd1 : 4'd2;
++`else
+                 native_error<=native_mode && (native_bad || native_extent_bad);
+                 if(native_mode && (native_bad || native_extent_bad))
+                     image_error<=native_bad ? 4'd1 : 4'd2;
++`endif
+             end
+         end
+     end
+@@ -296,7 +328,11 @@
+ `ifdef CPS2_NATIVE128
+         if(!native_preflight && !native_error &&
+            ((!hps_download && last_dwnbusy && !dwnld_busy) ||
++`ifdef CPS2_QSND32
++            (ddr_dwn && dump_cnt >= (native_mode ? native_end :
++`else
+             (ddr_dwn && dump_cnt >= (native_mode ? NATIVE_END :
++`endif
+ `ifdef CPSPLUS
+                                      dump_end
+ `else
+@@ -431,7 +467,11 @@
+             end
+             `ifdef CPS2_NATIVE128
+             dump_we <= st==2'd2 && !native_error &&
++`ifdef CPS2_QSND32
++                       (!native_mode || dump_cnt<native_end);
++`else
+                        (!native_mode || dump_cnt<NATIVE_END);
++`endif
+ `else
+             dump_we <= st==2'd2;
+ `endif

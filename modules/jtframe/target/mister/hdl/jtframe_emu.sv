@@ -402,6 +402,12 @@ wire [15:0] ln_dout, ln_pxl, ln_data;
 
 `ifdef CPSPLUS
 // CPS+ arranged-audio DDR client (game <-> jtframe_mr_ddrmux)
+`ifdef CPS2_UNIFIED
+wire cpsp_game_hold, cpsp_music_reset, cpsp_music_boot, cpsp_music_indirect;
+wire [31:0] cpsp_music_extent;
+wire cpsp_music_ready;
+wire [3:0] cpsp_music_status;
+`endif
 wire        cpsp_busy, cpsp_dout_ready, cpsp_rd;
 wire [ 7:0] cpsp_burstcnt;
 wire [28:0] cpsp_addr;
@@ -506,6 +512,15 @@ u_frame(
 
 `ifdef CPSPLUS
     // CPS+ arranged-audio DDR client
+`ifdef CPS2_UNIFIED
+    .cpsp_game_hold      ( cpsp_game_hold      ),
+    .cpsp_music_reset    ( cpsp_music_reset    ),
+    .cpsp_music_boot     ( cpsp_music_boot     ),
+    .cpsp_music_indirect ( cpsp_music_indirect ),
+    .cpsp_music_extent   ( cpsp_music_extent   ),
+    .cpsp_music_ready    ( cpsp_music_ready    ),
+    .cpsp_music_status   ( cpsp_music_status   ),
+`endif
     .cpsp_busy      ( cpsp_busy       ),
     .cpsp_burstcnt  ( cpsp_burstcnt   ),
     .cpsp_addr      ( cpsp_addr       ),
