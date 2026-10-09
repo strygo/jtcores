@@ -537,3 +537,29 @@
         bank_a[3] <= 1'b0;
         set_used  <= 1'b0;
     end
+// Strider EX (backports/striderex in the capcom repo): stock id 0x22 plus
+// bank 2 (offset 8, mask 7) for EX art. MRA header id 0x3F, offsets 0/4/8,
+// masks 3/7/7.
+6'h3f: begin
+        // Bank 0: 0-2 MB, as stock
+        bank_a[0] <=  ( layer>=STARS  && code[15:10]<=6'h0) /* 0 - 3ff */  ||
+         ( layer==OBJ   && code[15:9]<=7'h13) /* 0 - 4fff */  ||
+         ( layer==SCR2  && code[15:9]>=7'h10 && code[15]==1'b0 ) /* 4000 - 7fff */ ;
+        // Bank 1: 2-4 MB, as stock
+        bank_a[1] <=  ( layer==SCR3  && code[15:12]==4'h0 ) /* 0 - fff: all Strider has */  ||
+         ( layer==SCR1  && code[15:10]>=6'h1c && code[15]==1'b0 ) /* 7000 - 7fff */ ;
+        // Bank 2: 4-8 MB, EX art.
+        //   sprites and SCROLL2 (16x16) codes 0x8000-0xBFFF -> 4-6 MB
+        //   SCROLL1 (8x8)               codes 0x8000-0xBFFF -> 6-7 MB
+        //   SCROLL3 (32x32)             codes 0x3800-0x3FFF -> 7-8 MB
+        // SCROLL3 addresses use code[13:0] only, and HBMAME masks SCROLL3
+        // codes to 14 bits before its mapper, so the EX range lives inside
+        // 0x0000-0x3FFF: stock Strider's SCROLL3 art is codes 0x000-0xFFF
+        // (2 MB of 32x32 tiles), so 0x1000-0x3FFF is free.
+        bank_a[2] <=  ( layer==OBJ   && code[15:14]==2'b10 ) ||
+         ( layer==SCR2  && code[15:14]==2'b10 ) ||
+         ( layer==SCR1  && code[15:14]==2'b10 ) ||
+         ( layer==SCR3  && code[15:11]==5'b00111 );
+        bank_a[3] <= 1'b0;
+        set_used  <= 1'b0;
+    end
