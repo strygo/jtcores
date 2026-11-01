@@ -1,4 +1,4 @@
-name: CPS2plus 512 KiB sound ROM development
+name: CPS2 mapped music pause candidate
 
 on:
   workflow_dispatch:
@@ -49,7 +49,7 @@ jobs:
         run: |
           src=fitter_results/cpsplus/jtcps2.rbf
           if [ -f "$src" ]; then
-            sudo cp "$src" "fitter_results/jtcps2-cpsplus-z80-512_$(date -u +%Y%m%d).rbf"
+            sudo cp "$src" "fitter_results/jtcps2-cpsplus-mapped-pause_$(date -u +%Y%m%d).rbf"
           fi
           if [ -d fitter_results ]; then
             sudo cp modules/cpsplus/evolution-z80/export_manifest.json fitter_results/source_manifest.json
@@ -61,7 +61,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: cps2plus-z80-512
+          name: cps2-mapped-pause
           path: fitter_results
           retention-days: 30
           if-no-files-found: error

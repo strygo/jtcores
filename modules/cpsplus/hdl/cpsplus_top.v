@@ -101,7 +101,7 @@ wire [TRIG_AW-1:0] trig_addr;
 wire [31:0] trig_data;
 
 // ddr <-> player
-wire        pl_start, pl_stop;
+wire        pl_start, pl_stop, pl_hold;
 wire [31:0] trk_addr, trk_len, trk_lstart, trk_lend;
 wire [31:0] trk_lstart_smp, trk_lend_smp;
 wire        trk_xfade_en;
@@ -198,6 +198,7 @@ cpsplus_ddr #(
     .trig_data      ( trig_data      ),
     .pl_start       ( pl_start       ),
     .pl_stop        ( pl_stop        ),
+    .pl_hold        ( pl_hold        ),
     .trk_addr       ( trk_addr       ),
     .trk_len        ( trk_len        ),
     .trk_lstart     ( trk_lstart     ),
@@ -242,7 +243,7 @@ cpsplus_player u_player (
     .cen_frame      ( cen_frame     ),
     .start          ( pl_start      ),
     .stop           ( pl_stop       ),
-    .osd_pause      ( osd_pause     ),
+    .osd_pause      ( osd_pause | pl_hold ),
     .trk_addr       ( trk_addr      ),
     .trk_len        ( trk_len       ),
     .trk_loop_start ( trk_lstart    ),

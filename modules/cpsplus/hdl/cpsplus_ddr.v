@@ -122,6 +122,7 @@ module cpsplus_ddr #(parameter
     // player control
     output reg        pl_start,
     output reg        pl_stop,
+    output reg        pl_hold,       // mapped hold, independent of MiSTer pause
     output reg [31:0] trk_addr,
     output reg [31:0] trk_len,
     output reg [31:0] trk_lstart,
@@ -551,7 +552,7 @@ always @(posedge clk) begin
                 end else begin
                     cfg_addr <= 8'h40 + {2'd0, map_k};
                     cfg_data <= !map_val ? 16'h0000 :
-                                map_k[0] ? {13'd0, map_e[18:16]} :
+                                map_k[0] ? {12'd0, map_e[19:16]} :
                                            map_e[15:0];
                     if (cfg_c == 7'd70) begin
                         tw_done  <= 12'd0;
@@ -804,6 +805,23 @@ reg  [63:0] w0, w1, w2;
 
 wire [ 6:0] tgt4 = evt_argb >= 8'd32 ? 7'd127 : {evt_argb[4:0], 2'b00};
 
+wire accept_play = est==E_IDLE && evt_stb && ready && evt_verb==3'd1 &&
+                  {20'd0, evt_track} < {12'd0, h_trk_cnt[19:0]} &&
+                  evt_track < MAXTRK_W &&
+                  !(SAME_SONG!=0 && cur_valid && evt_track==cur_track);
+
+// HOLD/RESUME must remain receivable during track-index initialization.
+// Clear on the accepted PLAY, not its later pl_start pulse: a HOLD arriving
+// between those events owns the new track too. Invalid states are ignored.
+always @(posedge clk) begin
+    if (rst || !ready || !osd_en || boot_go || bt_stop)
+        pl_hold <= 1'b0;
+    else if (evt_stb && ready && evt_verb==3'd7 && evt_track<=12'd1)
+        pl_hold <= evt_track[0];
+    else if (accept_play || (evt_stb && ready && evt_verb==3'd2))
+        pl_hold <= 1'b0;
+end
+
 always @(posedge clk) begin
     if (rst) begin
         est          <= E_IDLE;
@@ -827,9 +845,7 @@ always @(posedge clk) begin
             E_IDLE: if (evt_stb && ready) begin
                 case (evt_verb)
                     // SAME_SONG: drop a PLAY for the track already playing
-                    3'd1: if ({20'd0, evt_track} < {12'd0, h_trk_cnt[19:0]}
-                              && evt_track < MAXTRK_W
-                              && !(SAME_SONG!=0 && cur_valid && evt_track==cur_track)) begin
+                    3'd1: if (accept_play) begin
                         e_track <= evt_track;
                         e_gain  <= evt_gain;
                         idx_ra  <= {evt_track[TRK_AW-1:0], 2'd0};

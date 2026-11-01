@@ -126,7 +126,7 @@ reg [ 2:0] ctrl_dflt;
 reg        mode_en, mode_dialect, mode_nogate;
 
 reg [15:0] ctrl_cmd [0:31];
-reg [ 2:0] ctrl_vb  [0:31];
+reg [ 3:0] ctrl_vb  [0:31]; // bit 3 is SET_HOLD's state, ignored by other verbs
 
 always @(posedge clk) begin
     if( rst ) begin
@@ -157,7 +157,7 @@ always @(posedge clk) begin
             end
         endcase
         else if( !cfg_addr[0] ) ctrl_cmd[ cfg_addr[5:1] ] <= cfg_data;
-        else                    ctrl_vb [ cfg_addr[5:1] ] <= cfg_data[2:0];
+        else                    ctrl_vb [ cfg_addr[5:1] ] <= cfg_data[3:0];
     end
 end
 
@@ -220,7 +220,7 @@ end
 // Control-verb map: parallel compare (<= 32 entries; loader zero-fills the
 // rest — entry cmd 0 can never match because it is below ctrl_start).
 reg        ctrl_hit;
-reg  [2:0] ctrl_verb_mux;
+reg  [3:0] ctrl_verb_mux;
 integer ci;
 always @(*) begin
     ctrl_hit      = 1'b0;
@@ -236,7 +236,7 @@ end
 // latches (the handshake write is always a later bus cycle — Phase 0:
 // record-then-handshake holds on every driver revision observed).
 reg        st_ctrl, st_hit, st_range;
-reg  [2:0] st_cverb;
+reg  [3:0] st_cverb;
 reg  [2:0]  cls_verb;
 reg  [11:0] cls_track;
 reg  [ 6:0] cls_gain;
@@ -258,8 +258,8 @@ always @(posedge clk) begin
         st_range <= in_range;
         // stage 2: classification from row_q + stage-1 flags
         if( st_ctrl ) begin
-            cls_verb  <= st_hit ? st_cverb : ctrl_dflt;
-            cls_track <= 12'd0;
+            cls_verb  <= st_hit ? st_cverb[2:0] : ctrl_dflt;
+            cls_track <= st_hit && st_cverb[2:0]==3'd7 ? {11'd0,st_cverb[3]} : 12'd0;
             cls_gain  <= 7'd0;
             cls_sup   <= 1'b0;      // control commands are never suppressed
             cls_ctrl  <= 1'b1;

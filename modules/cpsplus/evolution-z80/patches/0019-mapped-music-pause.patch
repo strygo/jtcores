@@ -1,0 +1,137 @@
+diff --git a/modules/cpsplus/hdl/cpsplus_ddr.v b/modules/cpsplus/hdl/cpsplus_ddr.v
+index 0ddfea235..36978873c 100644
+--- a/modules/cpsplus/hdl/cpsplus_ddr.v
++++ b/modules/cpsplus/hdl/cpsplus_ddr.v
+@@ -122,6 +122,7 @@ module cpsplus_ddr #(parameter
+     // player control
+     output reg        pl_start,
+     output reg        pl_stop,
++    output reg        pl_hold,       // mapped hold, independent of MiSTer pause
+     output reg [31:0] trk_addr,
+     output reg [31:0] trk_len,
+     output reg [31:0] trk_lstart,
+@@ -551,7 +552,7 @@ always @(posedge clk) begin
+                 end else begin
+                     cfg_addr <= 8'h40 + {2'd0, map_k};
+                     cfg_data <= !map_val ? 16'h0000 :
+-                                map_k[0] ? {13'd0, map_e[18:16]} :
++                                map_k[0] ? {12'd0, map_e[19:16]} :
+                                            map_e[15:0];
+                     if (cfg_c == 7'd70) begin
+                         tw_done  <= 12'd0;
+@@ -804,6 +805,23 @@ reg  [63:0] w0, w1, w2;
+ 
+ wire [ 6:0] tgt4 = evt_argb >= 8'd32 ? 7'd127 : {evt_argb[4:0], 2'b00};
+ 
++wire accept_play = est==E_IDLE && evt_stb && ready && evt_verb==3'd1 &&
++                  {20'd0, evt_track} < {12'd0, h_trk_cnt[19:0]} &&
++                  evt_track < MAXTRK_W &&
++                  !(SAME_SONG!=0 && cur_valid && evt_track==cur_track);
++
++// HOLD/RESUME must remain receivable during track-index initialization.
++// Clear on the accepted PLAY, not its later pl_start pulse: a HOLD arriving
++// between those events owns the new track too. Invalid states are ignored.
++always @(posedge clk) begin
++    if (rst || !ready || !osd_en || boot_go || bt_stop)
++        pl_hold <= 1'b0;
++    else if (evt_stb && ready && evt_verb==3'd7 && evt_track<=12'd1)
++        pl_hold <= evt_track[0];
++    else if (accept_play || (evt_stb && ready && evt_verb==3'd2))
++        pl_hold <= 1'b0;
++end
++
+ always @(posedge clk) begin
+     if (rst) begin
+         est          <= E_IDLE;
+@@ -827,9 +845,7 @@ always @(posedge clk) begin
+             E_IDLE: if (evt_stb && ready) begin
+                 case (evt_verb)
+                     // SAME_SONG: drop a PLAY for the track already playing
+-                    3'd1: if ({20'd0, evt_track} < {12'd0, h_trk_cnt[19:0]}
+-                              && evt_track < MAXTRK_W
+-                              && !(SAME_SONG!=0 && cur_valid && evt_track==cur_track)) begin
++                    3'd1: if (accept_play) begin
+                         e_track <= evt_track;
+                         e_gain  <= evt_gain;
+                         idx_ra  <= {evt_track[TRK_AW-1:0], 2'd0};
+diff --git a/modules/cpsplus/hdl/cpsplus_top.v b/modules/cpsplus/hdl/cpsplus_top.v
+index f120efb3d..4effa40e7 100644
+--- a/modules/cpsplus/hdl/cpsplus_top.v
++++ b/modules/cpsplus/hdl/cpsplus_top.v
+@@ -101,7 +101,7 @@ wire [TRIG_AW-1:0] trig_addr;
+ wire [31:0] trig_data;
+ 
+ // ddr <-> player
+-wire        pl_start, pl_stop;
++wire        pl_start, pl_stop, pl_hold;
+ wire [31:0] trk_addr, trk_len, trk_lstart, trk_lend;
+ wire [31:0] trk_lstart_smp, trk_lend_smp;
+ wire        trk_xfade_en;
+@@ -198,6 +198,7 @@ cpsplus_ddr #(
+     .trig_data      ( trig_data      ),
+     .pl_start       ( pl_start       ),
+     .pl_stop        ( pl_stop        ),
++    .pl_hold        ( pl_hold        ),
+     .trk_addr       ( trk_addr       ),
+     .trk_len        ( trk_len        ),
+     .trk_lstart     ( trk_lstart     ),
+@@ -242,7 +243,7 @@ cpsplus_player u_player (
+     .cen_frame      ( cen_frame     ),
+     .start          ( pl_start      ),
+     .stop           ( pl_stop       ),
+-    .osd_pause      ( osd_pause     ),
++    .osd_pause      ( osd_pause | pl_hold ),
+     .trk_addr       ( trk_addr      ),
+     .trk_len        ( trk_len       ),
+     .trk_loop_start ( trk_lstart    ),
+diff --git a/modules/cpsplus/hdl/cpsplus_trigger.v b/modules/cpsplus/hdl/cpsplus_trigger.v
+index 67064700e..4a21bca31 100644
+--- a/modules/cpsplus/hdl/cpsplus_trigger.v
++++ b/modules/cpsplus/hdl/cpsplus_trigger.v
+@@ -126,7 +126,7 @@ reg [ 2:0] ctrl_dflt;
+ reg        mode_en, mode_dialect, mode_nogate;
+ 
+ reg [15:0] ctrl_cmd [0:31];
+-reg [ 2:0] ctrl_vb  [0:31];
++reg [ 3:0] ctrl_vb  [0:31]; // bit 3 is SET_HOLD's state, ignored by other verbs
+ 
+ always @(posedge clk) begin
+     if( rst ) begin
+@@ -157,7 +157,7 @@ always @(posedge clk) begin
+             end
+         endcase
+         else if( !cfg_addr[0] ) ctrl_cmd[ cfg_addr[5:1] ] <= cfg_data;
+-        else                    ctrl_vb [ cfg_addr[5:1] ] <= cfg_data[2:0];
++        else                    ctrl_vb [ cfg_addr[5:1] ] <= cfg_data[3:0];
+     end
+ end
+ 
+@@ -220,7 +220,7 @@ end
+ // Control-verb map: parallel compare (<= 32 entries; loader zero-fills the
+ // rest — entry cmd 0 can never match because it is below ctrl_start).
+ reg        ctrl_hit;
+-reg  [2:0] ctrl_verb_mux;
++reg  [3:0] ctrl_verb_mux;
+ integer ci;
+ always @(*) begin
+     ctrl_hit      = 1'b0;
+@@ -236,7 +236,7 @@ end
+ // latches (the handshake write is always a later bus cycle — Phase 0:
+ // record-then-handshake holds on every driver revision observed).
+ reg        st_ctrl, st_hit, st_range;
+-reg  [2:0] st_cverb;
++reg  [3:0] st_cverb;
+ reg  [2:0]  cls_verb;
+ reg  [11:0] cls_track;
+ reg  [ 6:0] cls_gain;
+@@ -258,8 +258,8 @@ always @(posedge clk) begin
+         st_range <= in_range;
+         // stage 2: classification from row_q + stage-1 flags
+         if( st_ctrl ) begin
+-            cls_verb  <= st_hit ? st_cverb : ctrl_dflt;
+-            cls_track <= 12'd0;
++            cls_verb  <= st_hit ? st_cverb[2:0] : ctrl_dflt;
++            cls_track <= st_hit && st_cverb[2:0]==3'd7 ? {11'd0,st_cverb[3]} : 12'd0;
+             cls_gain  <= 7'd0;
+             cls_sup   <= 1'b0;      // control commands are never suppressed
+             cls_ctrl  <= 1'b1;
