@@ -1,0 +1,54 @@
+{
+  "schema": 1,
+  "base_revision": "9886018dac2c0de37474b9d924765db3aa75da09",
+  "files": {
+    "modules/cpsplus/hdl/cpsplus_top.v": "70f3a41d3fcab1b1d60c7f536962c8cfbe163f012c0b82534c7ce51dc866b658",
+    ".github/workflows/build_cores.yml": "d92bb10d0224d50a977a29b3b5a3230bbc78598d2187da8aa4cce24e5db5cd39",
+    "modules/cpsplus/ex-pause/verify_source.py": "6bc8e9a7a39b5b26a5bbfea63da64a515755280e927852ed236cf51d038beeeb"
+  },
+  "submodules": {
+    "modules/fx68k": "1217ab8dc600de070c6adb71ea6fe69de8855362",
+    "modules/jtdsp16": "71fa564ae143527001868b6fb6fb3e41df6a1eb1",
+    "modules/jteeprom": "9c68ce841f4ec560ca6f228c8af6301129fd95fa"
+  },
+  "rtl_qualification": {
+    "schema": 1,
+    "passed": true,
+    "recipes": {
+      "integration/ex_pause_bridge.py": "2c2eb11c2cfc5881ff1607226ca5dba7621735e81b267b2550b329cbdc06b0a1",
+      "rtl/cpsplus_top.v": "e9d99dbdc72e983b5f1b96b6b075aeb7537032b264d6ce16e4cfd1bf2a9da7ff",
+      "rtl/tb/tb_ex_pause.v": "82ebb3e4d53381ef2febdb31be5b9028cc74125abb1836cedffb05844c9b83e4",
+      "rtl/tb/tb_player.v": "855934aab325a935fb9df4059aec4f2887ff60403f5e275a39bd2a854a7bea93",
+      "rtl/tb/gen_player_vectors.py": "a485cf9bd650526296d024ce67e757ed8f7708591aad0e0a127bfb39e5574c15"
+    },
+    "rtl": {
+      "cpsplus_top.v": "70f3a41d3fcab1b1d60c7f536962c8cfbe163f012c0b82534c7ce51dc866b658",
+      "cpsplus_player.v": "9d7c74d3decf134881e7d1761019edf9fe5033e7cc70af4a01827048c4d36115",
+      "cpsplus_adx.v": "4656d04c9ee810d0ea9ccec19c29296640744d8a4c58840432f1aec074d1d3c3"
+    },
+    "cases": {
+      "pcm": [
+        "PASS EX pause bridge: bus exclusions, silence, position/fade hold, repeated resume, OSD overlap and reset",
+        "TB_PLAYER PASS: 68000/68000 golden pairs, divergence=0, checks ok"
+      ],
+      "pcm_mono": [
+        "PASS EX pause bridge: bus exclusions, silence, position/fade hold, repeated resume, OSD overlap and reset",
+        "TB_PLAYER PASS: 16000/16000 golden pairs, divergence=0, checks ok"
+      ],
+      "monoadx": [
+        "PASS EX pause bridge: bus exclusions, silence, position/fade hold, repeated resume, OSD overlap and reset",
+        "TB_PLAYER PASS: 208000/208000 golden pairs, divergence=0, checks ok"
+      ],
+      "xfade": [
+        "PASS EX pause bridge: bus exclusions, silence, position/fade hold, repeated resume, OSD overlap and reset",
+        "TB_PLAYER PASS: 16640/16640 golden pairs, divergence=0, checks ok"
+      ],
+      "fade1": [
+        "PASS EX pause bridge: bus exclusions, silence, position/fade hold, repeated resume, OSD overlap and reset",
+        "TB_PLAYER PASS: 2000/2000 golden pairs, divergence=0, checks ok"
+      ]
+    },
+    "original_missing_bridge_rejected": true,
+    "hardware_review": false
+  }
+}

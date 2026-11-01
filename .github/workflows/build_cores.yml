@@ -1,4 +1,4 @@
-name: CPS2plus 512 KiB sound ROM development
+name: CPS+ EX pause audio test
 
 on:
   workflow_dispatch:
@@ -24,7 +24,7 @@ jobs:
       - name: Verify complete source provenance
         run: |
           git submodule update --init modules/fx68k modules/jtdsp16 modules/jteeprom
-          python3 modules/cpsplus/evolution-z80/verify_export.py --root "$PWD"
+          python3 modules/cpsplus/ex-pause/verify_source.py --root "$PWD"
           git rev-parse HEAD
           git submodule status modules/fx68k modules/jtdsp16 modules/jteeprom
       - name: Verify generated synthesis source list
@@ -49,10 +49,11 @@ jobs:
         run: |
           src=fitter_results/cpsplus/jtcps2.rbf
           if [ -f "$src" ]; then
-            sudo cp "$src" "fitter_results/jtcps2-cpsplus-z80-512_$(date -u +%Y%m%d).rbf"
+            sudo cp "$src" "fitter_results/jtcps2-cpsplus-ex-pause_$(date -u +%Y%m%d).rbf"
           fi
           if [ -d fitter_results ]; then
-            sudo cp modules/cpsplus/evolution-z80/export_manifest.json fitter_results/source_manifest.json
+            sudo cp modules/cpsplus/ex-pause/source.json fitter_results/source_manifest.json
+            sudo cp modules/cpsplus/evolution-z80/export_manifest.json fitter_results/approved_source_manifest.json
           fi
           if [ -f build-source-check/receipt.json ]; then
             sudo mkdir -p fitter_results
@@ -61,7 +62,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: cps2plus-z80-512
+          name: cpsplus-ex-pause
           path: fitter_results
           retention-days: 30
           if-no-files-found: error

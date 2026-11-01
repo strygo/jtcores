@@ -235,6 +235,17 @@ cpsplus_ddr #(
 );
 
 wire signed [15:0] pl_audio_l, pl_audio_r;   // player audio (declared before use)
+wire ex_pause;
+cpsplus_ex_pause u_ex_pause (
+    .rst  ( rst_i       ),
+    .clk  ( clk         ),
+    .addr ( main_addr   ),
+    .dout ( main_dout   ),
+    .dsn  ( dsn         ),
+    .rnw  ( main_rnw    ),
+    .cs   ( main2qs_cs  ),
+    .held ( ex_pause    )
+);
 cpsplus_player u_player (
     .rst            ( rst_i           ),
     .clk            ( clk           ),
@@ -242,7 +253,7 @@ cpsplus_player u_player (
     .cen_frame      ( cen_frame     ),
     .start          ( pl_start      ),
     .stop           ( pl_stop       ),
-    .osd_pause      ( osd_pause     ),
+    .osd_pause      ( osd_pause | ex_pause ),
     .trk_addr       ( trk_addr      ),
     .trk_len        ( trk_len       ),
     .trk_loop_start ( trk_lstart    ),
@@ -305,4 +316,29 @@ always @(posedge clk) begin
     end
 end
 
+endmodule
+
+// SFA/Zero EX and SFA2/Zero2 EX own this QSound shared-RAM byte:
+// main CPU $619ff9 = Z80 $cffc. Their native Z80 tests this byte with OR A:
+// nonzero holds (SFA EX writes 1; released SFA2 EX also writes 2), zero
+// resumes. Observe the write without changing native RAM or handshake.
+// Word writes are boot RAM tests, not pause requests. Neither high-lane
+// writes nor reads qualify. Keep ownership across pack/OSD toggles: the game
+// need not repeat its request while already paused. Game reset clears it.
+// Kept in this file so every existing CPS2/CPS1.5 synthesis source list
+// includes the bridge; the CPS1 stack has its own separate top.
+module cpsplus_ex_pause (
+    input rst, clk,
+    input [23:1] addr,
+    input [15:0] dout,
+    input [1:0] dsn,
+    input rnw, cs,
+    output reg held
+);
+always @(posedge clk) begin
+    if (rst)
+        held <= 1'b0;
+    else if (cs && !rnw && dsn == 2'b10 && addr == (24'h619ff9 >> 1))
+        held <= |dout[7:0];
+end
 endmodule
