@@ -43,7 +43,10 @@ wire [22:0] qsnd_addr;
 wire        prog_qsnd;
 wire [ 7:0] snd_data, qsnd_data;
 wire [17:1] ram_addr;
-`ifdef CPS2_PRG8
+`ifdef CPS2_PRG12
+wire [23:1] main_rom_addr;
+wire        prog_ext, prog_ext2;
+`elsif CPS2_PRG8
 wire [22:1] main_rom_addr;
 wire        prog_ext;
 `else
@@ -158,6 +161,9 @@ assign busack = busack_cpu | turbo;
 jtcps2_main u_main(
 `ifdef CPS2_PRG8
     .prog_ext    ( prog_ext         ),
+`endif
+`ifdef CPS2_PRG12
+    .prog_ext2   ( prog_ext2        ),
 `endif
     .rst        ( rst_game          ),
     .clk_rom    ( clk               ),
@@ -589,6 +595,9 @@ jtframe_limsum #(.WI(16), .K(2)) u_cpsp_mixr(
 jtcps1_sdram #(.CPS(2), .REGSIZE(REGSIZE)) u_sdram (
 `ifdef CPS2_PRG8
     .cps2_prog_ext ( prog_ext       ),
+`endif
+`ifdef CPS2_PRG12
+    .cps2_prog_ext2( prog_ext2      ),
 `endif
 `ifdef CPS2_OBJEXT
     .cps2_obj_ext  ( obj_ext        ),

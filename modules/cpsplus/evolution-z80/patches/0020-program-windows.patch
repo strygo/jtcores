@@ -1,0 +1,287 @@
+diff --git a/cores/cps1/hdl/jtcps1_prom_we.v b/cores/cps1/hdl/jtcps1_prom_we.v
+index d1c9b491e..1d4d3f008 100644
+--- a/cores/cps1/hdl/jtcps1_prom_we.v
++++ b/cores/cps1/hdl/jtcps1_prom_we.v
+@@ -66,6 +66,9 @@ parameter [ 5:0] CFG_BYTE   =6'd39  // location of the byte with encoder informa
+     ,output reg         cps2_qsnd32 = 0
+ `ifdef CPS2_Z80_512
+     ,output reg         cps2_z80_ext = 0
++`ifdef CPS2_PRG12
++    ,output reg         cps2_prog_ext2 = 0
++`endif
+ `endif
+ `endif
+ `ifdef CPS2_GFX64
+@@ -80,7 +83,41 @@ reg native_last_rom=0;
+ reg [26:0] native_next=0;
+ `ifdef CPS2_QSND32
+ reg native_sample32=0;
+-`ifdef CPS2_Z80_512
++`ifdef CPS2_PRG12
++// 12 MiB CPU region: header byte 1 (the Z80 start, 0x3000 KiB) selects it and
++// every later start moves by 4 MiB. The Z80 and sample profiles compose.
++reg native_large_z80=0, native_large_prg=0;
++wire native_early_prg = ioctl_addr==1 ? ioctl_dout==8'h30 : native_large_prg;
++wire native_early_z80 = ioctl_addr==3 ? ioctl_dout==(native_large_prg ? 8'h32 : 8'h22) : native_large_z80;
++wire [26:0] native_end = (native_sample32 ? NATIVE32_END : NATIVE_END) +
++                         (native_large_z80 ? 27'h40000 : 27'd0) +
++                         (native_large_prg ? 27'h400000 : 27'd0);
++wire native_early_wide = ioctl_addr==14 ? ioctl_dout==3 : native_sample32;
++wire native_header_match = ioctl_addr<8 ?
++    (ioctl_dout==native_expected_prg(ioctl_addr[6:0],0,native_early_z80,native_early_prg) ||
++     ioctl_dout==native_expected_prg(ioctl_addr[6:0],1,native_early_z80,native_early_prg)) :
++    ioctl_dout==native_expected_prg(ioctl_addr[6:0],native_early_wide,native_large_z80,native_large_prg);
++wire [15:0] native_delta = (native_large_z80 ? 16'h0100 : 16'd0) + (native_large_prg ? 16'h1000 : 16'd0);
++wire native_mirror_ok = snd_start==(native_large_prg ? 16'h3000 : 16'h2000) && pcm_start==16'h2100+native_delta &&
++    qsnd_start==(native_sample32 ? 16'ha100 : 16'h6100)+native_delta &&
++    gfx_start==(native_sample32 ? 16'ha108 : 16'h6108)+native_delta;
++always @(posedge clk) begin
++    if((ioctl_rom && !native_last_rom) || (ioctl_wr && ioctl_rom && ioctl_addr==0)) begin
++        native_large_z80<=0;
++        native_large_prg<=0;
++        cps2_z80_ext<=0;
++        cps2_prog_ext2<=0;
++    end else begin
++        if(ioctl_wr && ioctl_rom && !ioctl_ram && ioctl_addr==1) native_large_prg<=ioctl_dout==8'h30;
++        if(ioctl_wr && ioctl_rom && !ioctl_ram && ioctl_addr==3)
++            native_large_z80<=ioctl_dout==(native_large_prg ? 8'h32 : 8'h22);
++        if(native_finish && !ioctl_rom && !native_bad && (!prog_we || prog_rdy)) begin
++            cps2_z80_ext<=native_large_z80;
++            cps2_prog_ext2<=native_large_prg;
++        end
++    end
++end
++`elsif CPS2_Z80_512
+ reg native_large_z80=0;
+ wire native_early_z80 = ioctl_addr==3 ? ioctl_dout==8'h22 : native_large_z80;
+ wire [26:0] native_end = (native_sample32 ? NATIVE32_END : NATIVE_END) +
+@@ -402,7 +439,12 @@ always @(posedge clk) begin
+     end
+ `endif
+ end
+-`ifdef CPS2_NATIVE128
++`ifdef CPS2_PRG12
++// CPU bytes 8..12 MiB go to bank-0 bytes 12..16 MiB; without the profile the
++// cap stays 8 MiB, so bit 23 is never set and the mapping is the 8 MiB one.
++wire [22:0] cpu_phys = load_prog_ext ? {cpu_addr[23]|cpu_addr[22], cpu_addr[23], cpu_addr[21:1]} : cpu_addr[23:1];
++wire cpu_allowed = !is_cpu || (load_prog_ext ? bulk_addr<(native_large_prg ? 27'h0c00000 : 27'h0800000) : bulk_addr<27'h0400000);
++`elsif CPS2_NATIVE128
+ wire [22:0] cpu_phys = load_prog_ext ? {cpu_addr[22], 1'b0, cpu_addr[21:1]} : cpu_addr[23:1];
+ wire cpu_allowed = !is_cpu || (load_prog_ext ? bulk_addr<27'h0800000 : bulk_addr<27'h0400000);
+ `else
+diff --git a/cores/cps1/hdl/jtcps1_sdram.v b/cores/cps1/hdl/jtcps1_sdram.v
+index cd30749b7..5a2e6c7e6 100644
+--- a/cores/cps1/hdl/jtcps1_sdram.v
++++ b/cores/cps1/hdl/jtcps1_sdram.v
+@@ -81,7 +81,11 @@ module jtcps1_sdram #( parameter
+     // Main CPU
+     input           main_rom_cs,
+     output          main_rom_ok,
+-`ifdef CPS2_PRG8
++`ifdef CPS2_PRG12
++    output          cps2_prog_ext,
++    output          cps2_prog_ext2, // image declares the 12 MiB program profile
++    input    [22:0] main_rom_addr,
++`elsif CPS2_PRG8
+     output          cps2_prog_ext,
+     input    [21:0] main_rom_addr,
+ `else
+@@ -245,7 +249,12 @@ wire        dump_we;
+ // Byte offsets 4..8 MiB contain VRAM, objects, work RAM and sound ROM.
+ // Widen the slot AND its cache tags to retain the physical extension bit.
+ localparam MAIN_ROM_AW = 23;
++`ifdef CPS2_PRG12
++// Region bytes 8..12 MiB (windows E and F) fill bank-0 bytes 12..16 MiB.
++wire [22:0] main_rom_phys = {main_rom_addr[22]|main_rom_addr[21], main_rom_addr[22], main_rom_addr[20:0]};
++`else
+ wire [22:0] main_rom_phys = {main_rom_addr[21], 1'b0, main_rom_addr[20:0]};
++`endif
+ `else
+ localparam MAIN_ROM_AW = 21;
+ wire [20:0] main_rom_phys = main_rom_addr;
+@@ -321,6 +330,9 @@ jtcps1_prom_we #(
+ `ifdef CPS2_PRG8
+     .cps2_prog_ext   ( cps2_prog_ext ),
+ `endif
++`ifdef CPS2_PRG12
++    .cps2_prog_ext2  ( cps2_prog_ext2 ),
++`endif
+ `ifdef CPS2_OBJEXT
+     .cps2_obj_ext    ( cps2_obj_ext  ),
+ `endif
+diff --git a/cores/cps2/hdl/jtcps2_game.v b/cores/cps2/hdl/jtcps2_game.v
+index aa6cc494d..755dbca6f 100644
+--- a/cores/cps2/hdl/jtcps2_game.v
++++ b/cores/cps2/hdl/jtcps2_game.v
+@@ -43,7 +43,10 @@ wire [22:0] qsnd_addr;
+ wire        prog_qsnd;
+ wire [ 7:0] snd_data, qsnd_data;
+ wire [17:1] ram_addr;
+-`ifdef CPS2_PRG8
++`ifdef CPS2_PRG12
++wire [23:1] main_rom_addr;
++wire        prog_ext, prog_ext2;
++`elsif CPS2_PRG8
+ wire [22:1] main_rom_addr;
+ wire        prog_ext;
+ `else
+@@ -158,6 +161,9 @@ assign busack = busack_cpu | turbo;
+ jtcps2_main u_main(
+ `ifdef CPS2_PRG8
+     .prog_ext    ( prog_ext         ),
++`endif
++`ifdef CPS2_PRG12
++    .prog_ext2   ( prog_ext2        ),
+ `endif
+     .rst        ( rst_game          ),
+     .clk_rom    ( clk               ),
+@@ -590,6 +596,9 @@ jtcps1_sdram #(.CPS(2), .REGSIZE(REGSIZE)) u_sdram (
+ `ifdef CPS2_PRG8
+     .cps2_prog_ext ( prog_ext       ),
+ `endif
++`ifdef CPS2_PRG12
++    .cps2_prog_ext2( prog_ext2      ),
++`endif
+ `ifdef CPS2_OBJEXT
+     .cps2_obj_ext  ( obj_ext        ),
+     .gfx_oram_ext  ( gfx_oram_ext   ),
+diff --git a/cores/cps2/hdl/jtcps2_main.v b/cores/cps2/hdl/jtcps2_main.v
+index 5116bb2cb..5cd333594 100644
+--- a/cores/cps2/hdl/jtcps2_main.v
++++ b/cores/cps2/hdl/jtcps2_main.v
+@@ -65,7 +65,11 @@ module jtcps2_main(
+     input              ram_ok,
+     // ROM access
+     output reg         rom_cs,
+-`ifdef CPS2_PRG8
++`ifdef CPS2_PRG12
++    input              prog_ext,
++    input              prog_ext2,
++    output reg  [23:1] rom_addr,
++`elsif CPS2_PRG8
+     input              prog_ext,
+     output reg  [22:1] rom_addr,
+ `else
+@@ -116,7 +120,15 @@ wire [15:0] rom_dec;
+ // Plaintext 4 MiB extension. SDRAM mapping skips the RAM allocation.
+ `ifdef CPS2_PRG8
+ wire ext_window = prog_ext && A[23:21]>=3'b101 && A[23:21]<=3'b110;
++`ifdef CPS2_PRG12
++// Two more plaintext read-only windows of the 12 MiB program profile:
++// E at e00000-feffff (below work RAM) and F at 500000-5fffff.
++wire ext_e = prog_ext2 && A[23:21]==3'b111 && !(&A[23:16]);
++wire ext_f = prog_ext2 && A[23:20]==4'h5;
++wire [2:0] decrypt_fc = (ext_window || ext_e || ext_f) ? 3'b101 : FC;
++`else
+ wire [2:0] decrypt_fc = ext_window ? 3'b101 : FC;
++`endif
+ `else
+ wire [2:0] decrypt_fc = FC;
+ `endif
+@@ -179,7 +191,12 @@ always @(posedge clk) begin
+ end
+ 
+ always @(*) begin // below 5MB and above 8MB
++`ifdef CPS2_PRG12
++    // window F takes the same one-wait cycle as the rest of the program ROM
++    one_wait = !ASn && BGACKn && (A[23:20]<4'h5 || A[23:20]>=4'h8 || ext_f);
++`else
+     one_wait = !ASn && BGACKn && (A[23:20]<4'h5 || A[23:20]>=4'h8);
++`endif
+ end
+ 
+ always @(posedge clk, posedge rst) begin
+@@ -195,7 +212,13 @@ always @(posedge clk, posedge rst) begin
+         main2qs_addr <= 23'd0;
+     end else begin
+         if( !ASn && BGACKn ) begin // PAL PRG1 12H
+-`ifdef CPS2_PRG8
++`ifdef CPS2_PRG12
++            // CPU region offsets: stock 0, extension 4 MiB, E 8 MiB, F 10 MiB
++            rom_addr    <= ext_f      ? {4'b1010, A[19:1]} :
++                           ext_e      ? {3'b100,  A[20:1]} :
++                           ext_window ? {2'b01, ~A[21], A[20:1]} : {2'b00, A[21:1]};
++            rom_cs      <= A[23:22] == 2'b00 || ((ext_window || ext_e || ext_f) && RnW);
++`elsif CPS2_PRG8
+             rom_addr    <= ext_window ? {1'b1, ~A[21], A[20:1]} : {1'b0, A[21:1]};
+             rom_cs      <= A[23:22] == 2'b00 || (ext_window && RnW);
+ `else
+diff --git a/modules/jtframe/hdl/inc/jtframe_cps2_native.vh b/modules/jtframe/hdl/inc/jtframe_cps2_native.vh
+index 0bac5daba..81368b3bf 100644
+--- a/modules/jtframe/hdl/inc/jtframe_cps2_native.vh
++++ b/modules/jtframe/hdl/inc/jtframe_cps2_native.vh
+@@ -102,3 +102,28 @@ function [7:0] native_expected_z80;
+     end
+ endfunction
+ `endif
++
++`ifdef CPS2_PRG12
++`ifndef CPS2_Z80_512
++    `CPS2_PRG12_requires_CPS2_Z80_512
++`endif
++// 12 MiB CPU region (program windows E and F): the same descriptor with the
++// CPU extent, the four KiB starts and every following offset moved by 4 MiB.
++function [7:0] native_expected_prg;
++    input [6:0] address;
++    input wide, expanded, prg12;
++    reg [31:0] word_value;
++    integer lane;
++    begin
++        for(lane=0;lane<4;lane=lane+1)
++            word_value[lane*8+:8]=native_expected_z80({address[6:2],2'b00}+lane[6:0],wide,expanded);
++        if(prg12) case(address[6:2])
++            5'd0,5'd1: word_value=word_value+32'h10001000;
++            5'd19: word_value=32'h00c00000;
++            5'd20,5'd22,5'd24,5'd26,5'd28: word_value=word_value+32'h00400000;
++            default: ;
++        endcase
++        native_expected_prg=word_value[{address[1:0],3'b000}+:8];
++    end
++endfunction
++`endif
+diff --git a/modules/jtframe/target/mister/hdl/jtframe_mister_dwnld.v b/modules/jtframe/target/mister/hdl/jtframe_mister_dwnld.v
+index 00edd58dd..3808611f0 100644
+--- a/modules/jtframe/target/mister/hdl/jtframe_mister_dwnld.v
++++ b/modules/jtframe/target/mister/hdl/jtframe_mister_dwnld.v
+@@ -200,7 +200,26 @@ reg [3:0] image_error=0; // 1 header, 2 extent/overflow; retained until reload
+ reg native_sample32=0;
+ reg [63:0] native_mirror=0;
+ wire native_early_wide = ddram_cnt==1 ? ddram_dout[55:48]==3 : native_sample32;
+-`ifdef CPS2_Z80_512
++`ifdef CPS2_PRG12
++reg native_large_z80=0, native_large_prg=0;
++wire native_early_prg = ddram_cnt==0 ? ddram_dout[15:0]==16'h3000 : native_large_prg;
++wire native_early_z80 = ddram_cnt==0 ? ddram_dout[31:16]==(native_early_prg ? 16'h3200 : 16'h2200) : native_large_z80;
++wire [26:0] native_end = (native_sample32 ? NATIVE32_END : NATIVE_END) +
++                         (native_large_z80 ? 27'h40000 : 27'd0) +
++                         (native_large_prg ? 27'h400000 : 27'd0);
++wire [63:0] native_delta = (native_large_z80 ? 64'h0100010001000000 : 64'd0) +
++                           (native_large_prg ? 64'h1000100010001000 : 64'd0);
++wire native_mirror_ok = native_mirror ==
++    (native_sample32 ? 64'ha100a10821002000 : 64'h6100610821002000)+native_delta;
++always @(posedge clk, posedge rst) begin
++    if(rst) begin native_large_z80<=0; native_large_prg<=0; end
++    else if(new_rom_download) begin native_large_z80<=0; native_large_prg<=0; end
++    else if(ddr_dwn && ddram_wait && !ddram_busy && ddram_dout_ready && ddram_page==0 && ddram_cnt==0) begin
++        native_large_z80<=native_early_z80;
++        native_large_prg<=native_early_prg;
++    end
++end
++`elsif CPS2_Z80_512
+ reg native_large_z80=0;
+ wire native_early_z80 = ddram_cnt==0 ? ddram_dout[31:16]==16'h2200 : native_large_z80;
+ wire [26:0] native_end = (native_sample32 ? NATIVE32_END : NATIVE_END) +
+@@ -234,7 +253,12 @@ always @(*) begin
+     for(header_lane=0;header_lane<8;header_lane=header_lane+1)
+         if(native_fixed({ddram_cnt[3:0],3'b000}+header_lane[6:0]) &&
+ `ifdef CPS2_QSND32
+-`ifdef CPS2_Z80_512
++`ifdef CPS2_PRG12
++           (ddram_cnt==0 ?
++            (ddram_dout[header_lane*8+:8] != native_expected_prg({ddram_cnt[3:0],3'b000}+header_lane[6:0],0,native_early_z80,native_early_prg) &&
++             ddram_dout[header_lane*8+:8] != native_expected_prg({ddram_cnt[3:0],3'b000}+header_lane[6:0],1,native_early_z80,native_early_prg)) :
++             ddram_dout[header_lane*8+:8] != native_expected_prg({ddram_cnt[3:0],3'b000}+header_lane[6:0],native_early_wide,native_early_z80,native_early_prg)))
++`elsif CPS2_Z80_512
+            (ddram_cnt==0 ?
+             (ddram_dout[header_lane*8+:8] != native_expected_z80({ddram_cnt[3:0],3'b000}+header_lane[6:0],0,native_early_z80) &&
+              ddram_dout[header_lane*8+:8] != native_expected_z80({ddram_cnt[3:0],3'b000}+header_lane[6:0],1,native_early_z80)) :

@@ -65,7 +65,11 @@ module jtcps2_main(
     input              ram_ok,
     // ROM access
     output reg         rom_cs,
-`ifdef CPS2_PRG8
+`ifdef CPS2_PRG12
+    input              prog_ext,
+    input              prog_ext2,
+    output reg  [23:1] rom_addr,
+`elsif CPS2_PRG8
     input              prog_ext,
     output reg  [22:1] rom_addr,
 `else
@@ -116,7 +120,15 @@ wire [15:0] rom_dec;
 // Plaintext 4 MiB extension. SDRAM mapping skips the RAM allocation.
 `ifdef CPS2_PRG8
 wire ext_window = prog_ext && A[23:21]>=3'b101 && A[23:21]<=3'b110;
+`ifdef CPS2_PRG12
+// Two more plaintext read-only windows of the 12 MiB program profile:
+// E at e00000-feffff (below work RAM) and F at 500000-5fffff.
+wire ext_e = prog_ext2 && A[23:21]==3'b111 && !(&A[23:16]);
+wire ext_f = prog_ext2 && A[23:20]==4'h5;
+wire [2:0] decrypt_fc = (ext_window || ext_e || ext_f) ? 3'b101 : FC;
+`else
 wire [2:0] decrypt_fc = ext_window ? 3'b101 : FC;
+`endif
 `else
 wire [2:0] decrypt_fc = FC;
 `endif
@@ -179,7 +191,12 @@ always @(posedge clk) begin
 end
 
 always @(*) begin // below 5MB and above 8MB
+`ifdef CPS2_PRG12
+    // window F takes the same one-wait cycle as the rest of the program ROM
+    one_wait = !ASn && BGACKn && (A[23:20]<4'h5 || A[23:20]>=4'h8 || ext_f);
+`else
     one_wait = !ASn && BGACKn && (A[23:20]<4'h5 || A[23:20]>=4'h8);
+`endif
 end
 
 always @(posedge clk, posedge rst) begin
@@ -195,7 +212,13 @@ always @(posedge clk, posedge rst) begin
         main2qs_addr <= 23'd0;
     end else begin
         if( !ASn && BGACKn ) begin // PAL PRG1 12H
-`ifdef CPS2_PRG8
+`ifdef CPS2_PRG12
+            // CPU region offsets: stock 0, extension 4 MiB, E 8 MiB, F 10 MiB
+            rom_addr    <= ext_f      ? {4'b1010, A[19:1]} :
+                           ext_e      ? {3'b100,  A[20:1]} :
+                           ext_window ? {2'b01, ~A[21], A[20:1]} : {2'b00, A[21:1]};
+            rom_cs      <= A[23:22] == 2'b00 || ((ext_window || ext_e || ext_f) && RnW);
+`elsif CPS2_PRG8
             rom_addr    <= ext_window ? {1'b1, ~A[21], A[20:1]} : {1'b0, A[21:1]};
             rom_cs      <= A[23:22] == 2'b00 || (ext_window && RnW);
 `else

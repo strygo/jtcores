@@ -102,3 +102,28 @@ function [7:0] native_expected_z80;
     end
 endfunction
 `endif
+
+`ifdef CPS2_PRG12
+`ifndef CPS2_Z80_512
+    `CPS2_PRG12_requires_CPS2_Z80_512
+`endif
+// 12 MiB CPU region (program windows E and F): the same descriptor with the
+// CPU extent, the four KiB starts and every following offset moved by 4 MiB.
+function [7:0] native_expected_prg;
+    input [6:0] address;
+    input wide, expanded, prg12;
+    reg [31:0] word_value;
+    integer lane;
+    begin
+        for(lane=0;lane<4;lane=lane+1)
+            word_value[lane*8+:8]=native_expected_z80({address[6:2],2'b00}+lane[6:0],wide,expanded);
+        if(prg12) case(address[6:2])
+            5'd0,5'd1: word_value=word_value+32'h10001000;
+            5'd19: word_value=32'h00c00000;
+            5'd20,5'd22,5'd24,5'd26,5'd28: word_value=word_value+32'h00400000;
+            default: ;
+        endcase
+        native_expected_prg=word_value[{address[1:0],3'b000}+:8];
+    end
+endfunction
+`endif

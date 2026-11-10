@@ -81,7 +81,11 @@ module jtcps1_sdram #( parameter
     // Main CPU
     input           main_rom_cs,
     output          main_rom_ok,
-`ifdef CPS2_PRG8
+`ifdef CPS2_PRG12
+    output          cps2_prog_ext,
+    output          cps2_prog_ext2, // image declares the 12 MiB program profile
+    input    [22:0] main_rom_addr,
+`elsif CPS2_PRG8
     output          cps2_prog_ext,
     input    [21:0] main_rom_addr,
 `else
@@ -245,7 +249,12 @@ wire        dump_we;
 // Byte offsets 4..8 MiB contain VRAM, objects, work RAM and sound ROM.
 // Widen the slot AND its cache tags to retain the physical extension bit.
 localparam MAIN_ROM_AW = 23;
+`ifdef CPS2_PRG12
+// Region bytes 8..12 MiB (windows E and F) fill bank-0 bytes 12..16 MiB.
+wire [22:0] main_rom_phys = {main_rom_addr[22]|main_rom_addr[21], main_rom_addr[22], main_rom_addr[20:0]};
+`else
 wire [22:0] main_rom_phys = {main_rom_addr[21], 1'b0, main_rom_addr[20:0]};
+`endif
 `else
 localparam MAIN_ROM_AW = 21;
 wire [20:0] main_rom_phys = main_rom_addr;
@@ -320,6 +329,9 @@ jtcps1_prom_we #(
 ) u_prom_we(
 `ifdef CPS2_PRG8
     .cps2_prog_ext   ( cps2_prog_ext ),
+`endif
+`ifdef CPS2_PRG12
+    .cps2_prog_ext2  ( cps2_prog_ext2 ),
 `endif
 `ifdef CPS2_OBJEXT
     .cps2_obj_ext    ( cps2_obj_ext  ),
