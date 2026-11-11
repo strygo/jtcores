@@ -66,6 +66,9 @@ parameter [ 5:0] CFG_BYTE   =6'd39  // location of the byte with encoder informa
     ,output reg         cps2_qsnd32 = 0
 `ifdef CPS2_Z80_512
     ,output reg         cps2_z80_ext = 0
+`ifdef CPS2_Z80_1M
+    ,output reg         cps2_z80_1m = 0
+`endif
 `ifdef CPS2_PRG12
     ,output reg         cps2_prog_ext2 = 0
 `endif
@@ -83,7 +86,57 @@ reg native_last_rom=0;
 reg [26:0] native_next=0;
 `ifdef CPS2_QSND32
 reg native_sample32=0;
+`ifdef CPS2_Z80_1M
+// Z80 size code from header byte 3 relative to byte 1 (0x21/0x31 256 KiB,
+// 0x22/0x32 512 KiB, 0x24/0x34 1 MiB); any other value expects 256 KiB and is
+// refused. The 12 MiB CPU profile (byte 1 0x30) and the sample profile compose.
+reg [1:0] native_z80_size=0;
+reg native_large_prg=0;
 `ifdef CPS2_PRG12
+wire native_early_prg = ioctl_addr==1 ? ioctl_dout==8'h30 : native_large_prg;
+`else
+wire native_early_prg = 1'b0;
+`endif
+wire [1:0] native_dout_z80 = ioctl_dout==(native_large_prg ? 8'h34 : 8'h24) ? 2'd2 :
+                             ioctl_dout==(native_large_prg ? 8'h32 : 8'h22) ? 2'd1 : 2'd0;
+wire [1:0] native_early_z80 = ioctl_addr==3 ? native_dout_z80 : native_z80_size;
+wire [26:0] native_end = (native_sample32 ? NATIVE32_END : NATIVE_END) +
+                         (native_z80_size==2'd2 ? 27'hc0000 : native_z80_size==2'd1 ? 27'h40000 : 27'd0) +
+                         (native_large_prg ? 27'h400000 : 27'd0);
+wire native_early_wide = ioctl_addr==14 ? ioctl_dout==3 : native_sample32;
+wire native_header_match = ioctl_addr<8 ?
+    (ioctl_dout==native_expected_size(ioctl_addr[6:0],0,native_early_z80,native_early_prg) ||
+     ioctl_dout==native_expected_size(ioctl_addr[6:0],1,native_early_z80,native_early_prg)) :
+    ioctl_dout==native_expected_size(ioctl_addr[6:0],native_early_wide,native_z80_size,native_large_prg);
+wire [15:0] native_delta = (native_z80_size==2'd2 ? 16'h0300 : native_z80_size==2'd1 ? 16'h0100 : 16'd0) +
+                           (native_large_prg ? 16'h1000 : 16'd0);
+wire native_mirror_ok = snd_start==(native_large_prg ? 16'h3000 : 16'h2000) && pcm_start==16'h2100+native_delta &&
+    qsnd_start==(native_sample32 ? 16'ha100 : 16'h6100)+native_delta &&
+    gfx_start==(native_sample32 ? 16'ha108 : 16'h6108)+native_delta;
+always @(posedge clk) begin
+    if((ioctl_rom && !native_last_rom) || (ioctl_wr && ioctl_rom && ioctl_addr==0)) begin
+        native_z80_size<=0;
+        native_large_prg<=0;
+        cps2_z80_ext<=0;
+        cps2_z80_1m<=0;
+`ifdef CPS2_PRG12
+        cps2_prog_ext2<=0;
+`endif
+    end else begin
+`ifdef CPS2_PRG12
+        if(ioctl_wr && ioctl_rom && !ioctl_ram && ioctl_addr==1) native_large_prg<=ioctl_dout==8'h30;
+`endif
+        if(ioctl_wr && ioctl_rom && !ioctl_ram && ioctl_addr==3) native_z80_size<=native_dout_z80;
+        if(native_finish && !ioctl_rom && !native_bad && (!prog_we || prog_rdy)) begin
+            cps2_z80_ext<=native_z80_size!=2'd0;
+            cps2_z80_1m<=native_z80_size==2'd2;
+`ifdef CPS2_PRG12
+            cps2_prog_ext2<=native_large_prg;
+`endif
+        end
+    end
+end
+`elsif CPS2_PRG12
 // 12 MiB CPU region: header byte 1 (the Z80 start, 0x3000 KiB) selects it and
 // every later start moves by 4 MiB. The Z80 and sample profiles compose.
 reg native_large_z80=0, native_large_prg=0;

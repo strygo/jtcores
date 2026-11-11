@@ -27,7 +27,12 @@ wire        snd_cs, qsnd_cs,
             vram_dma_cs;
 wire        obank;  // OBJ bank
 wire [15:0] oram_base;
+`ifdef CPS2_Z80_1M
+wire [19:0] snd_addr;
+wire cps2_z80_1m;
+`else
 wire [18:0] snd_addr;
+`endif
 `ifdef CPS2_Z80_512
 wire cps2_z80_ext;
 `endif
@@ -406,6 +411,9 @@ jtcps15_sound u_sound(
 `ifdef CPS2_Z80_512
     .cps2_z80_ext( cps2_z80_ext      ),
 `endif
+`ifdef CPS2_Z80_1M
+    .cps2_z80_1m( cps2_z80_1m       ),
+`endif
     .rom_addr   ( snd_addr          ),
     .rom_cs     ( snd_cs            ),
     .rom_data   ( snd_data          ),
@@ -691,6 +699,9 @@ jtcps1_sdram #(.CPS(2), .REGSIZE(REGSIZE)) u_sdram (
 
 `ifdef CPS2_Z80_512
     .cps2_z80_ext ( cps2_z80_ext  ),
+`endif
+`ifdef CPS2_Z80_1M
+    .cps2_z80_1m  ( cps2_z80_1m   ),
 `endif
     .snd_addr    ( snd_addr      ),
     .pcm_addr    ( qsnd_addr     ),

@@ -200,7 +200,35 @@ reg [3:0] image_error=0; // 1 header, 2 extent/overflow; retained until reload
 reg native_sample32=0;
 reg [63:0] native_mirror=0;
 wire native_early_wide = ddram_cnt==1 ? ddram_dout[55:48]==3 : native_sample32;
+`ifdef CPS2_Z80_1M
+// Z80 size code: 0 = 256 KiB, 1 = 512 KiB, 2 = 1 MiB (PCM start relative to the Z80 start)
+reg native_large_prg=0;
+reg [1:0] native_z80_size=0;
 `ifdef CPS2_PRG12
+wire native_early_prg = ddram_cnt==0 ? ddram_dout[15:0]==16'h3000 : native_large_prg;
+`else
+wire native_early_prg = 1'b0;
+`endif
+wire [1:0] native_early_z80 = ddram_cnt!=0 ? native_z80_size :
+    ddram_dout[31:16]==(native_early_prg ? 16'h3400 : 16'h2400) ? 2'd2 :
+    ddram_dout[31:16]==(native_early_prg ? 16'h3200 : 16'h2200) ? 2'd1 : 2'd0;
+wire [26:0] native_end = (native_sample32 ? NATIVE32_END : NATIVE_END) +
+                         (native_z80_size==2'd2 ? 27'hc0000 : native_z80_size==2'd1 ? 27'h40000 : 27'd0) +
+                         (native_large_prg ? 27'h400000 : 27'd0);
+wire [63:0] native_delta = (native_z80_size==2'd2 ? 64'h0300030003000000 :
+                            native_z80_size==2'd1 ? 64'h0100010001000000 : 64'd0) +
+                           (native_large_prg ? 64'h1000100010001000 : 64'd0);
+wire native_mirror_ok = native_mirror ==
+    (native_sample32 ? 64'ha100a10821002000 : 64'h6100610821002000)+native_delta;
+always @(posedge clk, posedge rst) begin
+    if(rst) begin native_z80_size<=0; native_large_prg<=0; end
+    else if(new_rom_download) begin native_z80_size<=0; native_large_prg<=0; end
+    else if(ddr_dwn && ddram_wait && !ddram_busy && ddram_dout_ready && ddram_page==0 && ddram_cnt==0) begin
+        native_z80_size<=native_early_z80;
+        native_large_prg<=native_early_prg;
+    end
+end
+`elsif CPS2_PRG12
 reg native_large_z80=0, native_large_prg=0;
 wire native_early_prg = ddram_cnt==0 ? ddram_dout[15:0]==16'h3000 : native_large_prg;
 wire native_early_z80 = ddram_cnt==0 ? ddram_dout[31:16]==(native_early_prg ? 16'h3200 : 16'h2200) : native_large_z80;
@@ -253,7 +281,12 @@ always @(*) begin
     for(header_lane=0;header_lane<8;header_lane=header_lane+1)
         if(native_fixed({ddram_cnt[3:0],3'b000}+header_lane[6:0]) &&
 `ifdef CPS2_QSND32
-`ifdef CPS2_PRG12
+`ifdef CPS2_Z80_1M
+           (ddram_cnt==0 ?
+            (ddram_dout[header_lane*8+:8] != native_expected_size({ddram_cnt[3:0],3'b000}+header_lane[6:0],0,native_early_z80,native_early_prg) &&
+             ddram_dout[header_lane*8+:8] != native_expected_size({ddram_cnt[3:0],3'b000}+header_lane[6:0],1,native_early_z80,native_early_prg)) :
+             ddram_dout[header_lane*8+:8] != native_expected_size({ddram_cnt[3:0],3'b000}+header_lane[6:0],native_early_wide,native_early_z80,native_early_prg)))
+`elsif CPS2_PRG12
            (ddram_cnt==0 ?
             (ddram_dout[header_lane*8+:8] != native_expected_prg({ddram_cnt[3:0],3'b000}+header_lane[6:0],0,native_early_z80,native_early_prg) &&
              ddram_dout[header_lane*8+:8] != native_expected_prg({ddram_cnt[3:0],3'b000}+header_lane[6:0],1,native_early_z80,native_early_prg)) :
