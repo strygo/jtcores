@@ -41,7 +41,12 @@ module jtcps15_sound(
 `ifdef CPS2_Z80_512
     input             cps2_z80_ext,
 `endif
+`ifdef CPS2_Z80_1M
+    input             cps2_z80_1m,  // image declares the 1 MiB Z80 program
+    output reg [19:0] rom_addr, // 1 MByte
+`else
     output reg [18:0] rom_addr, // 512 kByte
+`endif
     output reg        rom_cs,
     input      [ 7:0] rom_data,
     input             rom_ok,
@@ -82,7 +87,10 @@ localparam LATCH=`ifdef KABUKI_LATCH 1 `else 0 `endif ;
 wire        cpu_cen, cen_extra;
 wire [ 7:0] dec_dout, ram_dout, cpu_dout, bus_din;
 wire [15:0] A, bus_A;
-`ifdef CPS2_Z80_512
+`ifdef CPS2_Z80_1M
+reg  [ 5:0] bank;
+wire [5:0] selected_bank = {bus_din[5] & cps2_z80_1m,bus_din[4] & cps2_z80_ext,bus_din[3:0]};
+`elsif CPS2_Z80_512
 reg  [ 4:0] bank;
 wire [4:0] selected_bank = {bus_din[4] & cps2_z80_ext,bus_din[3:0]};
 `else
@@ -171,7 +179,9 @@ end
 
 always @(*) begin
     rom_cs  = !bus_mreqn && (!bus_A[15] || bus_A[15:14]==2'b10);
-`ifdef CPS2_Z80_512
+`ifdef CPS2_Z80_1M
+    rom_addr = bus_A[15] ? ({ bank, bus_A[13:0] } + 20'h8000) : { 5'b0, bus_A[14:0] };
+`elsif CPS2_Z80_512
     rom_addr = bus_A[15] ? ({ bank, bus_A[13:0] } + 19'h8000) : { 4'b0, bus_A[14:0] };
 `else
     rom_addr = (bus_A[15] ? ({ 1'b0, bank, bus_A[13:0] } + 19'h8000) : { 4'b0, bus_A[14:0] });
@@ -187,7 +197,9 @@ reg [23:0] cpu2dsp_s;
 
 always @(posedge clk48, posedge rst) begin
     if ( rst ) begin
-`ifdef CPS2_Z80_512
+`ifdef CPS2_Z80_1M
+        bank    <= 6'd0;
+`elsif CPS2_Z80_512
         bank    <= 5'd0;
 `else
         bank    <= 4'd0;
@@ -196,7 +208,12 @@ always @(posedge clk48, posedge rst) begin
         dsp_rst <= 1;
     end else begin
         if( bank_cs ) begin
-`ifdef CPS2_Z80_512
+`ifdef CPS2_Z80_1M
+            // 1 MiB images: banks 0-61; selections 62 and 63 decode to bank 0.
+            // 512 KiB images keep 30 and 31 to bank 0; legacy ignores bits 4-5.
+            bank    <= cps2_z80_1m ? (selected_bank>=62 ? 6'd0 : selected_bank) :
+                       cps2_z80_ext && selected_bank>=30 ? 6'd0 : selected_bank;
+`elsif CPS2_Z80_512
             // The last two selections are unpopulated, decoded to bank 0.
             // Legacy images ignore bit 4 exactly as before.
             bank    <= cps2_z80_ext && selected_bank>=30 ? 5'd0 : selected_bank;
@@ -219,7 +236,9 @@ end
 always @(*) begin
     cpu_din =  rom_cs ? ( A[15] ? rom_data : dec_dout ) : (
                ram_cs ? ram_dout : (
-`ifdef CPS2_Z80_512
+`ifdef CPS2_Z80_1M
+              qsnd_rd ? { dsp_rdy_n, 1'b1, bank[5] | ~cps2_z80_1m, bank[4] | ~cps2_z80_ext, bank[3:0] } : 8'hff
+`elsif CPS2_Z80_512
               qsnd_rd ? { dsp_rdy_n, 2'b11, bank[4] | ~cps2_z80_ext, bank[3:0] } : 8'hff
 `else
               qsnd_rd ? { dsp_rdy_n, 3'b111, bank } : 8'hff

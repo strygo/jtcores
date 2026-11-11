@@ -19,7 +19,11 @@
 module jtcps1_sdram #( parameter
            CPS     = 1,
            REGSIZE = 24,
+`ifdef CPS2_Z80_1M
+           Z80_AW  = CPS==1 ? 16 : CPS==2 ? 20 : 19, // 1 MiB CPS-2 sound program: bank-0 bytes 7..8 MiB
+`else
            Z80_AW  = CPS==1 ? 16 : 19,
+`endif
 `ifdef CPS2_QSND24
 `ifdef CPS2_QSND32
            PCM_AW  = CPS==1 ? 18 : 25, // 32 MiB byte-addressed sample store
@@ -193,6 +197,9 @@ module jtcps1_sdram #( parameter
 `ifdef CPS2_Z80_512
     output          cps2_z80_ext,
 `endif
+`ifdef CPS2_Z80_1M
+    output          cps2_z80_1m,
+`endif
     output          dump_flag
 );
 
@@ -342,6 +349,9 @@ jtcps1_prom_we #(
     .cps2_qsnd32     ( cps2_qsnd32 ),
 `ifdef CPS2_Z80_512
     .cps2_z80_ext    ( cps2_z80_ext ),
+`endif
+`ifdef CPS2_Z80_1M
+    .cps2_z80_1m     ( cps2_z80_1m  ),
 `endif
 `endif
 `ifdef CPS2_GFX64
