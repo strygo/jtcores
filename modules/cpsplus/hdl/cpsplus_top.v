@@ -26,7 +26,14 @@
 module cpsplus_top #(parameter
     TRIG_AW   = 13,
     TRIG_ROWS = 4608,
+`ifdef CPSPLUS_TRK1024
+    // 1,024-track index (2**10 entries x 32 B = 32 KB BRAM); every width
+    // that depends on the track count in cpsplus_ddr follows TRK_AW, and the
+    // trigger row's 12-bit track field already spans it.
+    TRK_AW    = 10
+`else
     TRK_AW    = 7
+`endif
 )(
     input             rst,
     input             clk,
