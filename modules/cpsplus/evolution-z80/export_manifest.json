@@ -1,8 +1,8 @@
 {
   "base_revision": "8e73fb10ef1cb8a539ec94db2a0f68ef89eb689c",
-  "branch": "cybotsex-trk2048-20261125",
+  "branch": "cpsplus-trk2048-20261125",
   "bundle_files": {
-    ".github/workflows/build_cores.yml": "c039b8fafc657aaa108b519ed5cecb944b09ccdbcdb9fb465739ee437e9473e1",
+    ".github/workflows/build_cores.yml": "a713b2bf428382213ffa9ced7c00f3ca082ca8c3276b66999dcbd04d8bebc8cd",
     "modules/cpsplus/evolution-z80/.gitattributes": "afa1b2c7bbf51f915df6d4166791d0f51e228eb2660c776ad065211f10822e6e",
     "modules/cpsplus/evolution-z80/MAPPED_PAUSE.md": "4942342862488a17396d221c026fc8ffb51f3b9e7a88edeadf37eb54479132e3",
     "modules/cpsplus/evolution-z80/PROGRAM_WINDOWS.md": "b4b03dec4b8705426edf92296e247e4fa74095c028cd9134c1a455538032eee4",
@@ -81,7 +81,7 @@
     "0022-cpsplus-track-index-1024.patch": "d41850f08bf079ffc05fccf6ac2c81e8588f38c47eb0abe8fc0b15d2b451dc84",
     "0023-cpsplus-track-index-2048.patch": "5d4e7122889a4ee1e8026e6919501a814624ea80f956ed9243776888f2e9899c"
   },
-  "private_use": "Cyberbots EX only; not the shared core",
+  "private_use": "common CPS-2 CPS+ candidate (combined core + 2,048-track index, standard jtcps2-cpsplus name); not released until Steve passes the hardware regression",
   "program_mib_supported": [
     8,
     12
